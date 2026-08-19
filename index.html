@@ -13,6 +13,7 @@
     transition:opacity .15s;border:1px solid rgba(255,255,255,.15)}
   .city-label.landmark{color:#ffd76a;border-color:rgba(255,215,106,.35)}
   .city-label.ru{color:#bfe6ff;border-color:rgba(102,204,255,.4)}
+  .city-label.plant{color:#7cffb2;border-color:rgba(124,255,178,.4)}
   .city-label.planet{color:#c9a9ff;border-color:rgba(201,169,255,.4);font-weight:600}
 </style>
 </head>
@@ -169,6 +170,14 @@ const LANDMARKS = [
   ['Колизей',41.89,12.49,'Италия','🇮🇹'],['Тадж-Махал',27.17,78.04,'Индия','🇮🇳'],
   ['Мачу-Пикчу',-13.16,-72.55,'Перу','🇵🇪'],['Опера Сидней',-33.86,151.21,'Австралия','🇦🇺']
 ];
+const PLANTS = [
+  ['ГЭС «Три ущелья»',30.82,111.00,'Китай','🇨🇳'],['Итайпу ГЭС',-25.41,-54.59,'Бразилия','🇧🇷'],
+  ['Плотина Гувера',36.02,-114.74,'США','🇺🇸'],['Плотина Гранд-Кули',47.96,-118.98,'США','🇺🇸'],
+  ['АЭС Касивадзаки-Карива',37.43,138.60,'Япония','🇯🇵'],
+  ['Ленинградская АЭС',59.84,29.05,'Россия','🇷🇺'],['Курская АЭС',51.67,35.61,'Россия','🇷🇺'],
+  ['Саяно-Шушенская ГЭС',52.79,91.34,'Россия','🇷🇺'],['Сургутская ГРЭС-2',61.15,73.50,'Россия','🇷🇺'],
+  ['Билибинская АЭС',68.05,166.44,'Россия','🇷🇺'],['Балаковская АЭС',52.02,47.87,'Россия','🇷🇺']
+];
 const RU_CITIES = [
   'Санкт-Петербург','Новосибирск','Екатеринбург','Казань','Нижний Новгород','Челябинск',
   'Самара','Омск','Ростов-на-Дону','Уфа','Красноярск','Пермь','Воронеж','Волгоград',
@@ -222,12 +231,12 @@ const raycaster = new THREE.Raycaster();
 const mouseNDC = new THREE.Vector2();
 const hitMeshes = [];
 
-const DOT_COLORS = {city:0xff5555, landmark:0xffd76a, ru:0x66ccff};
+const DOT_COLORS = {city:0xff5555, landmark:0xffd76a, ru:0x66ccff, plant:0x66ffa3};
 // уровень значимости для LOD подписей: 0 — крупнейшие/столицы (видны всегда),
-// 1 — прочие мировые города, 2 — достопримечательности, 3 — региональные города РФ (видны только вблизи)
+// 1 — прочие мировые города, 2 — достопримечательности и электростанции, 3 — региональные города РФ (видны только вблизи)
 function tierOf(kind, isCapital){
   if(kind === 'city') return isCapital ? 0 : 1;
-  if(kind === 'landmark') return 2;
+  if(kind === 'landmark' || kind === 'plant') return 2;
   return 3; // ru
 }
 const markers = []; // {dot, label, dir, tier}
@@ -270,6 +279,7 @@ function addMarker(name, lat, lon, kind, country, flag, isCapital){
 }
 CITIES.forEach(([n,lat,lon,country,flag,cap]) => addMarker(n,lat,lon,'city',country,flag,cap));
 LANDMARKS.forEach(([n,lat,lon,country,flag]) => addMarker(n,lat,lon,'landmark',country,flag));
+PLANTS.forEach(([n,lat,lon,country,flag]) => addMarker(n,lat,lon,'plant',country,flag));
 RU_CITIES.forEach(([n,lat,lon]) => addMarker(n,lat,lon,'ru','Россия','🇷🇺'));
 
 renderer.domElement.addEventListener('mousemove', (e) => {
@@ -375,6 +385,57 @@ function updatePlanes(dt){
     p.mesh.lookAt(_p2);
   }
 }
+
+// --- корабли и танкеры: курсируют по океанским маршрутам вместе с Землёй ---
+const SHIP_ROUTES = [
+  [[51.9,4.5],  [40.7,-74.0]],  // Роттердам — Нью-Йорк
+  [[31.2,121.5],[33.7,-118.2]], // Шанхай — Лос-Анджелес
+  [[1.3,103.8], [6.9,79.8]],    // Сингапур — Коломбо
+  [[-23.9,-46.3],[6.5,3.4]],    // Сантус — Лагос
+  [[-33.9,151.2],[-36.8,174.8]] // Сидней — Окленд
+];
+const TANKER_ROUTES = [
+  [[26.0,51.0], [19.0,72.8]],   // Персидский залив — Мумбаи
+  [[29.5,-95.0],[51.9,4.0]],    // Хьюстон — Роттердам
+  [[26.7,50.2], [1.3,103.8]],   // Рас-Таннура — Сингапур
+  [[6.5,3.4],   [29.5,-95.0]]   // Лагос — Хьюстон
+];
+function buildSeaCraft(routes, color, size, kindLabel, durMin, durSpan){
+  return routes.map(([from, to]) => {
+    const a = latLonToVec3(from[0], from[1], 1).normalize();
+    const b = latLonToVec3(to[0],   to[1],   1).normalize();
+    const mesh = new THREE.Mesh(
+      new THREE.BoxGeometry(size[0], size[1], size[2]),
+      new THREE.MeshStandardMaterial({color, emissive:0x111111})
+    );
+    earth.add(mesh);
+    const hit = new THREE.Mesh(
+      new THREE.SphereGeometry(size[2]*1.6, 8, 8),
+      new THREE.MeshBasicMaterial({visible:false})
+    );
+    hit.userData = {name: kindLabel, country:'', flag:''};
+    mesh.add(hit);
+    hitMeshes.push(hit);
+    return {a, b, mesh, t: Math.random(), dur: durMin + Math.random()*durSpan, forward: Math.random() < 0.5};
+  });
+}
+const ships   = buildSeaCraft(SHIP_ROUTES,   0xdddddd, [0.010,0.006,0.022], 'Контейнеровоз', 20, 12);
+const tankers = buildSeaCraft(TANKER_ROUTES, 0x2b2b2b, [0.013,0.008,0.030], 'Танкер',        24, 14);
+const _s1 = new THREE.Vector3(), _s2 = new THREE.Vector3();
+function updateSeaCraft(list, dt){
+  for(const s of list){
+    s.t += dt / s.dur;
+    if(s.t >= 1){ s.t = 0; s.forward = !s.forward; } // дошёл до порта — обратный рейс
+    const from = s.forward ? s.a : s.b, to = s.forward ? s.b : s.a;
+
+    _s1.copy(from).lerp(to, s.t).normalize();
+    s.mesh.position.copy(_s1).multiplyScalar(1.001); // чуть выше поверхности воды
+
+    _s2.copy(from).lerp(to, Math.min(s.t+0.01,1)).normalize().multiplyScalar(1.001);
+    s.mesh.lookAt(_s2);
+  }
+}
+function updateShips(dt){ updateSeaCraft(ships, dt); updateSeaCraft(tankers, dt); }
 
 // --- известные созвездия на дальней "небесной сфере" (координаты приближённые, для вида) ---
 const SKY_R = 480;
@@ -565,6 +626,7 @@ function animate(){
   clouds.rotation.y += 0.0013;
   updateSatellites(clock.elapsedTime);
   updatePlanes(dt);
+  updateShips(dt);
   updatePlanets(clock.elapsedTime);
   updateMoon(clock.elapsedTime);
   // если центр — движущееся тело (Луна/планета), камера следует за ним, сохраняя ракурс
