@@ -200,7 +200,12 @@ function addMarker(name, lat, lon, kind, country, flag, isCapital){
   const dir = latLonToVec3(lat, lon, 1).normalize();
   const pos = dir.clone().multiplyScalar(1.003);
 
-  const dot = new THREE.Mesh(new THREE.SphereGeometry(0.007, 8, 8), new THREE.MeshBasicMaterial({color: DOT_COLORS[kind]}));
+  const isCityDot = kind==='city' || kind==='ru' || kind==='city2';
+  const dotRadius = isCityDot ? 0.007*0.35 : 0.007;
+  const dotMat = isCityDot
+    ? new THREE.MeshBasicMaterial({color: DOT_COLORS[kind], transparent:true, opacity:0.25})
+    : new THREE.MeshBasicMaterial({color: DOT_COLORS[kind]});
+  const dot = new THREE.Mesh(new THREE.SphereGeometry(dotRadius, 12, 12), dotMat);
   dot.position.copy(pos);
   earth.add(dot);
 
@@ -223,7 +228,7 @@ function addMarker(name, lat, lon, kind, country, flag, isCapital){
   dot.add(hit);
   hitMeshes.push(hit);
 
-  markers.push({dot, label, dir, tier, kind});
+  markers.push({dot, label, dir, tier, kind, isCapital: !!isCapital});
 }
 CITIES.forEach(([n,lat,lon,country,flag,cap]) => addMarker(n,lat,lon,'city',country,flag,cap));
 LANDMARKS.forEach(([n,lat,lon,country,flag]) => addMarker(n,lat,lon,'landmark',country,flag));
@@ -250,7 +255,7 @@ renderer.domElement.addEventListener('mousemove', (e) => {
   }
 });
 
-const VIS = {constellations:true, city:true, plant:true, planets:true, labels:true};
+const VIS = {constellations:true, city:true, capitals:true, plant:true, planets:true, labels:true};
 // скорость вращения Земли по умолчанию на панели — 0.3×
 const EARTH_DEFAULT_SPEED = 0.3;
 const objectSpeed = new Map();
@@ -259,9 +264,10 @@ objectSpeed.set(earth, EARTH_DEFAULT_SPEED);
 // скорости вращения Земли на панели (меняется вместе с ползунком, а не фиксирована)
 function currentTransportSpeed(){ return objectSpeed.get(earth) ?? EARTH_DEFAULT_SPEED; }
 let paused = false;
-function kindVisible(kind){
-  if(kind==='plant') return VIS.plant;
-  if(kind==='city'||kind==='ru'||kind==='city2') return VIS.city;
+function kindVisible(m){
+  if(m.kind==='plant') return VIS.plant;
+  if(m.kind==='city' && m.isCapital) return VIS.capitals;
+  if(m.kind==='city'||m.kind==='ru'||m.kind==='city2') return VIS.city;
   return true;
 }
 
@@ -278,7 +284,7 @@ function updateMarkers(){
   citiesFirstVisible = false;
   for(const m of markers){
     const worldDir = m.dir.clone().applyQuaternion(earth.quaternion);
-    const facing = worldDir.dot(camDir) > 0.1 && kindVisible(m.kind);
+    const facing = worldDir.dot(camDir) > 0.1 && kindVisible(m);
     const fitsWidth = m.label.element.offsetWidth < widthLimit;
     const vis = facing && m.tier <= maxTier && fitsWidth;
     m.label.element.style.opacity = vis ? '1' : '0';

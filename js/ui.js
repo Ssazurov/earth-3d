@@ -48,6 +48,7 @@ export function initUI({ onSpeedChange, onToggle, onPauseToggle, onDistScaleChan
     <input type="range" id="zoomRange" min="0" max="1" step="0.001" value="0">
     <h3>Показ</h3>
     <label><input type="checkbox" id="chkConst" checked> Созвездия</label>
+    <label><input type="checkbox" id="chkCapital" checked> Столицы</label>
     <label><input type="checkbox" id="chkCity" checked> Города</label>
     <label><input type="checkbox" id="chkPlant" checked> Электростанции</label>
     <label><input type="checkbox" id="chkPlanets" checked> Планеты</label>
@@ -59,7 +60,7 @@ export function initUI({ onSpeedChange, onToggle, onPauseToggle, onDistScaleChan
   const panelFooter = document.createElement('div');
   panelFooter.id = 'panelFooter';
   panelFooter.innerHTML = `
-    <div class="footerTitle">Панель управления</div>
+    <div class="footerTitle">Вдохновение космосом</div>
     <div class="footerVersion">Версия v0.1</div>
     <a id="helpLink" href="#">ℹ️ Справка</a>
   `;
@@ -102,7 +103,7 @@ export function initUI({ onSpeedChange, onToggle, onPauseToggle, onDistScaleChan
     onZoomChange(v);
   });
 
-  const toggleMap = {chkConst:'constellations', chkCity:'city', chkPlant:'plant', chkPlanets:'planets', chkLabels:'labels'};
+  const toggleMap = {chkConst:'constellations', chkCapital:'capitals', chkCity:'city', chkPlant:'plant', chkPlanets:'planets', chkLabels:'labels'};
   Object.entries(toggleMap).forEach(([id,key]) => {
     panel.querySelector('#'+id).addEventListener('change', e => onToggle(key, e.target.checked));
   });
