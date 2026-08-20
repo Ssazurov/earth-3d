@@ -65,6 +65,14 @@ const earthMat = new THREE.MeshPhongMaterial({
 });
 const earth = new THREE.Mesh(earthGeo, earthMat);
 scene.add(earth);
+{
+  const div = document.createElement('div');
+  div.className = 'city-label planet';
+  div.textContent = 'Земля';
+  const label = new THREE.CSS2DObject(div);
+  label.position.set(0, 1.2, 0);
+  earth.add(label);
+}
 
 const cloudGeo = new THREE.SphereGeometry(1.01, 128, 128);
 const cloudMat = new THREE.MeshPhongMaterial({map: cloudMap, transparent: true, opacity: 0.35, depthWrite: false});
@@ -363,11 +371,20 @@ CONSTELLATIONS.forEach(c => {
   const segPts = [];
   c.lines.forEach(([i,j]) => segPts.push(pts[i], pts[j]));
   skyGroup.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(segPts), new THREE.LineBasicMaterial({color:0x6699ff, transparent:true, opacity:0.5})));
+  // имя созвездия выносим от звёзд: центроид фигуры + смещение по касательной к небесной сфере
+  const centroid = new THREE.Vector3();
+  pts.forEach(p => centroid.add(p));
+  centroid.divideScalar(pts.length).normalize().multiplyScalar(SKY_R);
+  const radial = centroid.clone().normalize();
+  const worldUp = new THREE.Vector3(0,1,0);
+  let tangent = worldUp.clone().sub(radial.clone().multiplyScalar(worldUp.dot(radial)));
+  if (tangent.lengthSq() < 1e-6) tangent.set(1,0,0);
+  tangent.normalize();
   const div = document.createElement('div');
-  div.className = 'city-label planet';
+  div.className = 'city-label planet constellation-label';
   div.textContent = c.name;
   const label = new THREE.CSS2DObject(div);
-  label.position.copy(pts[0]);
+  label.position.copy(centroid).add(tangent.clone().multiplyScalar(20));
   skyGroup.add(label);
 
   const alphaPt = pts[c.alphaIdx];
@@ -379,6 +396,65 @@ CONSTELLATIONS.forEach(c => {
   alphaLabel.position.copy(alphaPt);
   skyGroup.add(alphaLabel);
 });
+
+// --- мягкий спрайт-точка для звёзд и Млечного Пути ---
+function makeSoftDot(){
+  const c = document.createElement('canvas'); c.width = c.height = 32;
+  const ctx = c.getContext('2d');
+  const g = ctx.createRadialGradient(16,16,0,16,16,16);
+  g.addColorStop(0,'rgba(255,255,255,1)'); g.addColorStop(0.4,'rgba(255,255,255,.6)'); g.addColorStop(1,'rgba(255,255,255,0)');
+  ctx.fillStyle = g; ctx.fillRect(0,0,32,32);
+  return new THREE.CanvasTexture(c);
+}
+const softDot = makeSoftDot();
+
+// --- фоновые звёзды по всей небесной сфере (равномерно во все стороны,
+//     чтобы небо не зависело от того, какая планета выбрана) ---
+function makeBackgroundStars(count, radius){
+  const pos = [], col = []; const c = new THREE.Color();
+  for(let i=0;i<count;i++){
+    const v = new THREE.Vector3(THREE.MathUtils.randFloatSpread(2), THREE.MathUtils.randFloatSpread(2), THREE.MathUtils.randFloatSpread(2));
+    if(v.lengthSq() < 1e-6) continue;
+    v.normalize().multiplyScalar(radius);
+    pos.push(v.x, v.y, v.z);
+    const t = Math.random();
+    c.setHSL(0.58 - t*0.2, 0.3, 0.6 + Math.random()*0.35);
+    col.push(c.r, c.g, c.b);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  return new THREE.Points(geo, new THREE.PointsMaterial({size:2, map:softDot, vertexColors:true, transparent:true, opacity:.9, depthWrite:false, blending:THREE.AdditiveBlending, sizeAttenuation:false}));
+}
+skyGroup.add(makeBackgroundStars(4500, SKY_R*0.97));
+
+// --- Млечный Путь: полоса вдоль реальной галактической плоскости ---
+// полюс (NGP) и центр Галактики в экваториальных координатах (реальные приближённые значения)
+const ngp = raDecToVec3(12.857, 27.13, 1).normalize();
+const gc  = raDecToVec3(17.76, -28.94, 1).normalize();
+const mwU = gc.clone().sub(ngp.clone().multiplyScalar(gc.dot(ngp))).normalize();
+const mwV = new THREE.Vector3().crossVectors(ngp, mwU).normalize();
+function makeMilkyWay(count, radius){
+  const pos = [], col = []; const c = new THREE.Color();
+  for(let i=0;i<count;i++){
+    const glon = Math.random()*Math.PI*2;
+    const bulge = 1 + 1.6*Math.exp(-(glon*glon)/(2*0.5*0.5)) + 1.6*Math.exp(-((glon-Math.PI*2)**2)/(2*0.5*0.5));
+    const spreadDeg = 22/bulge; // у центра Галактики (Стрелец) полоса плотнее и ярче
+    const glat = THREE.MathUtils.degToRad(THREE.MathUtils.randFloatSpread(2)*spreadDeg);
+    const dir = mwU.clone().multiplyScalar(Math.cos(glat)*Math.cos(glon))
+      .add(mwV.clone().multiplyScalar(Math.cos(glat)*Math.sin(glon)))
+      .add(ngp.clone().multiplyScalar(Math.sin(glat)));
+    dir.normalize().multiplyScalar(radius);
+    pos.push(dir.x, dir.y, dir.z);
+    c.setHSL(0.62, 0.12, 0.72 + Math.random()*0.25);
+    col.push(c.r, c.g, c.b);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  return new THREE.Points(geo, new THREE.PointsMaterial({size:5, map:softDot, vertexColors:true, transparent:true, opacity:.32, depthWrite:false, blending:THREE.AdditiveBlending, sizeAttenuation:false}));
+}
+skyGroup.add(makeMilkyWay(9000, SKY_R*0.96));
 
 // --- лог-шкала масштаба (движок в панели <-> колесо мыши) ---
 const ZOOM_MIN = 1.4, ZOOM_MAX = 260;
@@ -677,7 +753,7 @@ function selectTarget(target){
   camera.position.add(delta);
   controls.target.copy(target.mesh.position);
   controls.minDistance = target.size*1.4 + 0.05;
-  controls.maxDistance = target.isEarth ? 260 : Math.max(target.size*60, 15);
+  controls.maxDistance = ZOOM_MAX; // единый диапазон для всех целей — движок зума всегда доходит до максимума
   autoRotate = !!target.isEarth;
   focused = target;
   if(ui) ui.setFocused(target.name, speedMul(target.mesh));
@@ -782,6 +858,9 @@ function animate(){
     controls.target.add(delta);
   }
   controls.update();
+  // небесная сфера всегда центрирована на камере — звёзды бесконечно далеко,
+  // видны одинаково из любой точки Солнечной системы под любым углом
+  skyGroup.position.copy(camera.position);
   updateMarkers();
   updateEarthDetail();
   const zn = distToZoomNorm(camera.position.distanceTo(controls.target));
