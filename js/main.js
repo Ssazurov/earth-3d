@@ -974,7 +974,7 @@ let activeCountdownRocket = null;
 let rocketTimer = (5 + Math.random()*6)/5;
 let launchCount = 0;
 let pendingLaunch = null;
-const ROCKET_SPEED_MUL = 5; // весь сценарий ракет (движение + таймеры) ×5
+const ROCKET_SPEED_MUL = 15; // весь сценарий ракет (движение + таймеры) ×15 (базовые ×5, ускорено ×3)
 function updateRockets(dt, t){
   // --- автозапуски отключены: ракета летит только по клику на космодром ---
   // if(pendingLaunch){
