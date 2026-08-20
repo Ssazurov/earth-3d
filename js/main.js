@@ -1,5 +1,7 @@
-import { CITIES, LANDMARKS, PLANTS, RU_CITIES, COSMODROMES, PLANETS, CONSTELLATIONS } from './data.js';
+import { CITIES, LANDMARKS, PLANTS, RU_CITIES, CITIES2, COSMODROMES, SATELLITES, PLANETS, CONSTELLATIONS } from './data.js';
+import { initDescription } from './description.js';
 import { initUI } from './ui.js';
+import { initHelp } from './help.js';
 
 // --- сцена, камера, рендер ---
 const scene = new THREE.Scene();
@@ -152,14 +154,39 @@ function getFlagMaterial(emoji){
 
 const tooltip = document.createElement('div');
 tooltip.style.cssText = 'position:fixed;pointer-events:none;display:none;z-index:20;'+
-  'background:rgba(0,20,40,.9);color:#fff;font:13px sans-serif;padding:6px 10px;'+
-  'border-radius:6px;border:1px solid rgba(255,255,255,.25);white-space:nowrap';
+  'background:rgba(0,20,40,.9);color:#fff;font:13px sans-serif;padding:6px 10px;line-height:1.5;'+
+  'border-radius:6px;border:1px solid rgba(255,255,255,.25);max-width:260px';
 document.body.appendChild(tooltip);
+
+const countdownEl = document.createElement('div');
+countdownEl.style.cssText = 'position:fixed;left:50%;top:38%;transform:translate(-50%,-50%);'+
+  'display:none;z-index:25;pointer-events:none;font:900 96px sans-serif;color:#fff;'+
+  'text-shadow:0 0 18px #ff7733,0 0 40px #ff2200,0 4px 8px rgba(0,0,0,.6);';
+document.body.appendChild(countdownEl);
+function showCountdownText(txt){ countdownEl.textContent = txt; countdownEl.style.display = 'block'; }
+function hideCountdown(){ countdownEl.style.display = 'none'; }
+
 const raycaster = new THREE.Raycaster();
 const mouseNDC = new THREE.Vector2();
 const hitMeshes = [];
+function fmtDT(d){ return d.toLocaleString('ru-RU', {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'}); }
+function renderTooltipHTML(d){
+  let html = `${d.flag||''} <b>${d.name}</b>` + (d.country ? ' — '+d.country : '');
+  if(d.from || d.to) html += `<br><span style="opacity:.85">${d.from||'?'} → ${d.to||'?'}</span>`;
+  if(d.cargo) html += `<br>Груз: ${d.cargo}`;
+  if(d.purpose) html += `<br>Назначение: ${d.purpose}`;
+  if(d.launchDate) html += `<br>Дата запуска: ${d.launchDate}`;
+  if(d.eolDate) html += `<br>Срок активного существования до: ${d.eolDate}`;
+  if(d.craft){
+    const now = Date.now();
+    const dep = new Date(now - d.craft.t*d.craft.dur*1000);
+    const eta = new Date(now + (1-d.craft.t)*d.craft.dur*1000);
+    html += `<br>Отправление: ${fmtDT(dep)}<br>Прибытие (план): ${fmtDT(eta)}`;
+  }
+  return html;
+}
 
-const DOT_COLORS = {city:0xff5555, landmark:0xffd76a, ru:0x66ccff, plant:0x66ffa3, cosmodrome:0xff8a5c};
+const DOT_COLORS = {city:0xff5555, landmark:0xffd76a, ru:0x66ccff, city2:0x66ccff, plant:0x66ffa3, cosmodrome:0xff8a5c};
 function tierOf(kind, isCapital){
   if(kind === 'city') return isCapital ? 0 : 1;
   if(kind === 'plant') return 1;
@@ -192,7 +219,7 @@ function addMarker(name, lat, lon, kind, country, flag, isCapital){
   }
 
   const hit = new THREE.Mesh(new THREE.SphereGeometry(0.022, 8, 8), new THREE.MeshBasicMaterial({visible:false}));
-  hit.userData = {name, country, flag};
+  hit.userData = {name, country, flag, kind};
   dot.add(hit);
   hitMeshes.push(hit);
 
@@ -202,6 +229,7 @@ CITIES.forEach(([n,lat,lon,country,flag,cap]) => addMarker(n,lat,lon,'city',coun
 LANDMARKS.forEach(([n,lat,lon,country,flag]) => addMarker(n,lat,lon,'landmark',country,flag));
 PLANTS.forEach(([n,lat,lon,country,flag]) => addMarker(n,lat,lon,'plant',country,flag));
 RU_CITIES.forEach(([n,lat,lon]) => addMarker(n,lat,lon,'ru','Россия','🇷🇺'));
+CITIES2.forEach(([n,lat,lon,country,flag]) => addMarker(n,lat,lon,'city2',country,flag));
 COSMODROMES.forEach(([n,lat,lon,country,flag]) => addMarker(n,lat,lon,'cosmodrome',country,flag));
 
 renderer.domElement.addEventListener('mousemove', (e) => {
@@ -211,7 +239,7 @@ renderer.domElement.addEventListener('mousemove', (e) => {
   const hits = raycaster.intersectObjects(hitMeshes, false).filter(h => h.object.parent.visible);
   if(hits.length){
     const d = hits[0].object.userData;
-    tooltip.innerHTML = `${d.flag||''} <b>${d.name}</b>` + (d.country ? ' — '+d.country : '');
+    tooltip.innerHTML = renderTooltipHTML(d);
     tooltip.style.left = (e.clientX+14)+'px';
     tooltip.style.top  = (e.clientY+14)+'px';
     tooltip.style.display = 'block';
@@ -223,11 +251,17 @@ renderer.domElement.addEventListener('mousemove', (e) => {
 });
 
 const VIS = {constellations:true, city:true, plant:true, planets:true, labels:true};
+// скорость вращения Земли по умолчанию на панели — 0.3×
+const EARTH_DEFAULT_SPEED = 0.3;
 const objectSpeed = new Map();
+objectSpeed.set(earth, EARTH_DEFAULT_SPEED);
+// реальная скорость самолётов/кораблей/ракет/спутников привязана к текущей
+// скорости вращения Земли на панели (меняется вместе с ползунком, а не фиксирована)
+function currentTransportSpeed(){ return objectSpeed.get(earth) ?? EARTH_DEFAULT_SPEED; }
 let paused = false;
 function kindVisible(kind){
   if(kind==='plant') return VIS.plant;
-  if(kind==='city'||kind==='ru') return VIS.city;
+  if(kind==='city'||kind==='ru'||kind==='city2') return VIS.city;
   return true;
 }
 
@@ -280,6 +314,14 @@ for(let i=0;i<6;i++){
 
   const sat = makeSatelliteMesh();
   satGroup.add(sat);
+  const info = SATELLITES[i % SATELLITES.length];
+  const hit = new THREE.Mesh(new THREE.SphereGeometry(0.02, 8, 8), new THREE.MeshBasicMaterial({visible:false}));
+  hit.userData = {
+    name: info[0], country: info[1], flag: info[2],
+    purpose: info[3], launchDate: info[4], eolDate: info[5]
+  };
+  sat.add(hit);
+  hitMeshes.push(hit);
   satellites.push({sat, radius, incl, node, speed, phase});
 }
 function makeSatelliteMesh(){
@@ -353,12 +395,21 @@ const planes = FLIGHT_ROUTES.map(([from, to]) => {
   const b = latLonToVec3(to[1],   to[2],   1).normalize();
   const mesh = makePlaneMesh();
   earth.add(mesh);
-  return {a, b, mesh, t: 0, dur: (8 + Math.random()*4)*5, alt: 0.12, forward: true,
+  const hit = new THREE.Mesh(new THREE.SphereGeometry(0.035, 8, 8), new THREE.MeshBasicMaterial({visible:false}));
+  mesh.add(hit);
+  hitMeshes.push(hit);
+  return {a, b, mesh, hit, cityFrom: from, cityTo: to, t: 0, dur: (8 + Math.random()*4)*5, alt: 0.12, forward: true,
     state: Math.random()<0.5?'flying':'grounded', groundT: Math.random()*10, groundWait: 12+Math.random()*18, blink: Math.random()*Math.PI*2};
 });
 const _p1 = new THREE.Vector3(), _p2 = new THREE.Vector3();
 function updatePlanes(dt){
   for(const p of planes){
+    const cityFrom = p.forward ? p.cityFrom : p.cityTo;
+    const cityTo = p.forward ? p.cityTo : p.cityFrom;
+    p.hit.userData = {
+      name: 'Авиарейс', flag: cityFrom[4], country: cityFrom[3],
+      from: `${cityFrom[0]} (${cityFrom[3]})`, to: `${cityTo[0]} (${cityTo[3]})`
+    };
     p.blink += dt*4;
     const on = Math.sin(p.blink) > 0.3;
     p.mesh.userData.navL.visible = on;
@@ -394,17 +445,26 @@ function updatePlanes(dt){
 
 // --- корабли и танкеры ---
 const SHIP_ROUTES = [
-  [[51.9,4.5],[48,-10],[40,-40],[40.7,-74.0]],
-  [[31.2,121.5],[33,160],[35,-170],[33.7,-118.2]],
-  [[1.3,103.8],[6,90],[6.9,79.8]],
-  [[-23.9,-46.3],[-15,-25],[0,-5],[6.5,3.4]],
-  [[-33.9,151.2],[-36.8,174.8]]
+  {from:{name:'Роттердам',country:'Нидерланды'}, to:{name:'Нью-Йорк',country:'США'},
+    wps:[[51.9,4.5],[48,-10],[40,-40],[40.7,-74.0]], vessel:'Maersk Triton', cargo:'Контейнеры (смешанный груз)'},
+  {from:{name:'Шанхай',country:'Китай'}, to:{name:'Лос-Анджелес',country:'США'},
+    wps:[[31.2,121.5],[33,160],[35,-170],[33.7,-118.2]], vessel:'Shanghai Pioneer', cargo:'Контейнеры (электроника)'},
+  {from:{name:'Сингапур',country:'Сингапур'}, to:{name:'Коломбо',country:'Шри-Ланка'},
+    wps:[[1.3,103.8],[6,90],[6.9,79.8]], vessel:'Straits Voyager', cargo:'Контейнеры (текстиль)'},
+  {from:{name:'Сантос',country:'Бразилия'}, to:{name:'Лагос',country:'Нигерия'},
+    wps:[[-23.9,-46.3],[-15,-25],[0,-5],[6.5,3.4]], vessel:'Santos Carrier', cargo:'Контейнеры (сельхозпродукция)'},
+  {from:{name:'Сидней',country:'Австралия'}, to:{name:'Окленд',country:'Новая Зеландия'},
+    wps:[[-33.9,151.2],[-36.8,174.8]], vessel:'Tasman Express', cargo:'Контейнеры (промышленные товары)'}
 ];
 const TANKER_ROUTES = [
-  [[26.0,51.0],[26.6,56.5],[12,65],[19.0,72.8]],
-  [[29.5,-95.0],[25,-85],[35,-40],[49,-5],[51.9,4.0]],
-  [[26.7,50.2],[26.6,56.5],[5,75],[2,101],[1.3,103.8]],
-  [[6.5,3.4],[0,-10],[10,-45],[29.5,-95.0]]
+  {from:{name:'Рас-Таннура',country:'Саудовская Аравия'}, to:{name:'Мумбаи',country:'Индия'},
+    wps:[[26.0,51.0],[26.6,56.5],[12,65],[19.0,72.8]], vessel:'Ras Tanura Star', cargo:'Сырая нефть'},
+  {from:{name:'Хьюстон',country:'США'}, to:{name:'Роттердам',country:'Нидерланды'},
+    wps:[[29.5,-95.0],[25,-85],[35,-40],[49,-5],[51.9,4.0]], vessel:'Gulf Voyager', cargo:'Нефтепродукты'},
+  {from:{name:'Рас-Таннура',country:'Саудовская Аравия'}, to:{name:'Сингапур',country:'Сингапур'},
+    wps:[[26.7,50.2],[26.6,56.5],[5,75],[2,101],[1.3,103.8]], vessel:'Arabian Falcon', cargo:'Сжиженный природный газ'},
+  {from:{name:'Бонни',country:'Нигерия'}, to:{name:'Хьюстон',country:'США'},
+    wps:[[6.5,3.4],[0,-10],[10,-45],[29.5,-95.0]], vessel:'Niger Delta Trader', cargo:'Сырая нефть'}
 ];
 function makeHullMesh(size, color, isTanker){
   // локальная ось движения — Z (как ожидает lookAt в updateSeaCraft)
@@ -437,15 +497,20 @@ function makeHullMesh(size, color, isTanker){
   return g;
 }
 function buildSeaCraft(routes, color, size, kindLabel, durMin, durSpan, isTanker){
-  return routes.map(wps => {
-    const pts = wps.map(([lat,lon]) => latLonToVec3(lat, lon, 1).normalize());
+  return routes.map(route => {
+    const pts = route.wps.map(([lat,lon]) => latLonToVec3(lat, lon, 1).normalize());
     const mesh = makeHullMesh(size, color, isTanker);
     earth.add(mesh);
     const hit = new THREE.Mesh(new THREE.SphereGeometry(size[2]*1.6, 8, 8), new THREE.MeshBasicMaterial({visible:false}));
-    hit.userData = {name: kindLabel, country:'', flag:''};
     mesh.add(hit);
     hitMeshes.push(hit);
-    return {pts, mesh, t: Math.random(), dur: (durMin + Math.random()*durSpan)*8, forward: Math.random() < 0.5};
+    const s = {pts, mesh, hit, route, t: Math.random(), dur: (durMin + Math.random()*durSpan)*8, forward: Math.random() < 0.5};
+    hit.userData = {
+      name: route.vessel || kindLabel, country: route.from.country,
+      from: `${route.from.name} (${route.from.country})`, to: `${route.to.name} (${route.to.country})`,
+      cargo: route.cargo, craft: s
+    };
+    return s;
   });
 }
 const ships   = buildSeaCraft(SHIP_ROUTES,   0xdddddd, [0.010,0.006,0.022], 'Контейнеровоз', 20, 12, false);
@@ -455,6 +520,10 @@ function updateSeaCraft(list, dt){
   for(const s of list){
     s.t += dt / s.dur;
     if(s.t >= 1){ s.t = 0; s.forward = !s.forward; }
+    const dep = s.forward ? s.route.from : s.route.to, arr = s.forward ? s.route.to : s.route.from;
+    s.hit.userData.country = dep.country;
+    s.hit.userData.from = `${dep.name} (${dep.country})`;
+    s.hit.userData.to = `${arr.name} (${arr.country})`;
     const segCount = s.pts.length - 1;
     const pos = s.forward ? s.t*segCount : (1-s.t)*segCount;
     const idx = Math.min(Math.floor(pos), segCount-1);
@@ -794,82 +863,216 @@ function updateCosmonaut(dt){
 }
 
 // --- ракеты ---
+const LAUNCH_WORDS = {
+  'Россия': 'Поехали!', 'Казахстан': 'Кеттik!', 'США': 'Liftoff!', 'Франция': 'Allumage !'
+};
+function launchWordFor(country){ return LAUNCH_WORDS[country] || 'Поехали!'; }
+let _chuteTex = null;
+function getParachuteTexture(){
+  if(_chuteTex) return _chuteTex;
+  const c = document.createElement('canvas'); c.width = 64; c.height = 64;
+  const ctx = c.getContext('2d');
+  const g = ctx.createRadialGradient(32,6,2,32,6,58);
+  g.addColorStop(0,'#fff176'); g.addColorStop(0.5,'#ff7043'); g.addColorStop(1,'#b71c1c');
+  ctx.fillStyle = g; ctx.fillRect(0,0,64,64);
+  _chuteTex = new THREE.CanvasTexture(c);
+  return _chuteTex;
+}
 function makeRocket(){
   const g = new THREE.Group();
   const bodyMat = new THREE.MeshStandardMaterial({color:0xf0f0f0, metalness:0.35, roughness:0.45});
   const noseMat = new THREE.MeshStandardMaterial({color:0xcc4422, metalness:0.2, roughness:0.5});
   const finMat = new THREE.MeshStandardMaterial({color:0x777777, metalness:0.3, roughness:0.5});
+  const rocketParts = new THREE.Group();
   const body = new THREE.Mesh(new THREE.CylinderGeometry(0.0035,0.0035,0.026,10), bodyMat);
   body.rotation.x = Math.PI/2;
-  g.add(body);
+  rocketParts.add(body);
   const noseGeo = new THREE.ConeGeometry(0.0035, 0.014, 10);
   noseGeo.rotateX(Math.PI/2);
   const nose = new THREE.Mesh(noseGeo, noseMat);
   nose.position.z = 0.02;
-  g.add(nose);
+  rocketParts.add(nose);
   for(let i=0;i<4;i++){
     const fin = new THREE.Mesh(new THREE.BoxGeometry(0.0012,0.007,0.007), finMat);
     const ang = i*(Math.PI/2);
     fin.position.set(Math.cos(ang)*0.0035, Math.sin(ang)*0.0035, -0.013);
     fin.rotation.z = ang;
-    g.add(fin);
+    rocketParts.add(fin);
   }
   const flameGeo = new THREE.ConeGeometry(0.0026, 0.016, 8);
   flameGeo.rotateX(-Math.PI/2);
   const flame = new THREE.Mesh(flameGeo, new THREE.MeshBasicMaterial({color:0xffaa33, transparent:true, opacity:0.85}));
   flame.position.z = -0.021;
-  g.add(flame);
-  g.userData.flame = flame;
+  rocketParts.add(flame);
+  g.add(rocketParts);
+
+  // огненный шар — сгорание в атмосфере при возвращении
+  const fireball = new THREE.Mesh(new THREE.SphereGeometry(0.004, 8, 8), new THREE.MeshBasicMaterial({color:0xff7733}));
+  fireball.visible = false;
+  g.add(fireball);
+
+  // спускаемая капсула на градиентном парашюте
+  const capsule = new THREE.Mesh(new THREE.ConeGeometry(0.003, 0.006, 8), bodyMat);
+  capsule.visible = false;
+  g.add(capsule);
+  const chute = new THREE.Mesh(new THREE.SphereGeometry(0.014, 12, 8, 0, Math.PI*2, 0, Math.PI*0.42), new THREE.MeshBasicMaterial({map:getParachuteTexture(), side:THREE.DoubleSide}));
+  chute.position.z = 0.02;
+  chute.rotation.x = Math.PI/2;
+  chute.visible = false;
+  g.add(chute);
+
+  // космонавт, покидающий капсулу после посадки
+  const cosmo = new THREE.Group();
+  const cosmoMat = new THREE.MeshStandardMaterial({color:0xffffff});
+  const chead = new THREE.Mesh(new THREE.SphereGeometry(0.0018,8,8), cosmoMat);
+  chead.position.y = 0.004;
+  const cbody = new THREE.Mesh(new THREE.CylinderGeometry(0.0016,0.002,0.006,6), cosmoMat);
+  cosmo.add(chead, cbody);
+  cosmo.position.z = 0.006;
+  cosmo.visible = false;
+  g.add(cosmo);
+
+  g.userData = {flame, fireball, capsule, chute, cosmo, rocketParts};
   g.visible = false;
   return g;
 }
 const rocketPool = [];
-for(let i=0;i<6;i++) rocketPool.push({mesh:makeRocket(), state:'idle', t:0, from:null});
-function launchRocket(r){
-  const pad = COSMODROMES[Math.floor(Math.random()*COSMODROMES.length)];
+for(let i=0;i<6;i++){
+  const mesh = makeRocket();
+  const hit = new THREE.Mesh(new THREE.SphereGeometry(0.02, 8, 8), new THREE.MeshBasicMaterial({visible:false}));
+  hit.userData = {name:'Ракета', country:'', flag:'', from:'', to:''};
+  mesh.add(hit);
+  hitMeshes.push(hit);
+  rocketPool.push({mesh, hit, state:'idle', t:0, from:null});
+}
+let cosmoIdx = 0;
+function nextCosmodrome(){ const pad = COSMODROMES[cosmoIdx % COSMODROMES.length]; cosmoIdx++; return pad; }
+function launchRocket(r, pad){
+  pad = pad || nextCosmodrome();
   r.from = latLonToVec3(pad[1], pad[2], 1).normalize();
   earth.add(r.mesh);
   r.mesh.position.copy(r.from);
   r.mesh.visible = true;
-  r.mesh.userData.flame.visible = true;
-  r.state = 'ascend'; r.t = 0;
+  const u = r.mesh.userData;
+  u.rocketParts.visible = true; u.flame.visible = false;
+  u.fireball.visible = false; u.capsule.visible = false; u.chute.visible = false; u.cosmo.visible = false;
+  r.state = 'countdown'; r.t = 0; r.lastNum = null;
+  r.launchWord = launchWordFor(pad[3]);
+  activeCountdownRocket = r;
+  r.hit.userData = {
+    name: 'Ракета', flag: pad[4], country: pad[3],
+    from: `${pad[0]} (${pad[3]})`, to: 'МКС (околоземная орбита)'
+  };
 }
-let rocketTimer = 3 + Math.random()*4;
+let activeCountdownRocket = null;
+let rocketTimer = (5 + Math.random()*6)/5;
+let launchCount = 0;
+let pendingLaunch = null;
+const ROCKET_SPEED_MUL = 5; // весь сценарий ракет (движение + таймеры) ×5
 function updateRockets(dt, t){
-  rocketTimer -= dt;
-  if(rocketTimer <= 0){
-    const idle = rocketPool.find(r => r.state === 'idle');
-    if(idle) launchRocket(idle);
-    rocketTimer = 6 + Math.random()*8;
-  }
+  // --- автозапуски отключены: ракета летит только по клику на космодром ---
+  // if(pendingLaunch){
+  //   pendingLaunch.delay -= dt;
+  //   if(pendingLaunch.delay <= 0){
+  //     const idle = rocketPool.find(r => r.state === 'idle');
+  //     if(idle) launchRocket(idle, pendingLaunch.pad);
+  //     pendingLaunch = null;
+  //   }
+  // }
+  // rocketTimer -= dt;
+  // if(rocketTimer <= 0){
+  //   launchCount++;
+  //   const idle = rocketPool.find(r => r.state === 'idle');
+  //   if(idle) launchRocket(idle);
+  //   if(launchCount % 2 === 0){
+  //     pendingLaunch = {delay: (0.3 + Math.random()*0.6)/ROCKET_SPEED_MUL, pad: nextCosmodrome()};
+  //   }
+  //   rocketTimer = 40 + Math.random()*15; // не чаще 1 раза в 40 реальных секунд
+  // }
+  const mdt = dt * currentTransportSpeed() * ROCKET_SPEED_MUL; // скорость движения ракеты (по калибровке транспорта)
   for(const r of rocketPool){
     if(r.state === 'idle') continue;
-    if(r.state === 'ascend'){
-      r.t += dt/240;
+    const u = r.mesh.userData;
+    if(r.state === 'countdown'){
+      r.t += dt; // реальные секунды, не масштабируются — счёт идёт как настоящие секунды
+      if(r.t < 5){
+        const num = 5 - Math.floor(r.t);
+        if(num !== r.lastNum){ r.lastNum = num; showCountdownText(String(num)); }
+        if(num <= 3) u.flame.visible = true; // на счёте "3" появляется огонь
+      } else if(r.t < 6){
+        if(r.lastNum !== 0){ r.lastNum = 0; showCountdownText(r.launchWord); }
+      } else {
+        if(activeCountdownRocket === r){ hideCountdown(); activeCountdownRocket = null; }
+        r.state = 'ascend'; r.t = 0;
+      }
+    } else if(r.state === 'ascend'){
+      r.t += mdt/240;
       const h = 1 + r.t*0.42;
       r.mesh.position.copy(r.from).multiplyScalar(h);
       r.mesh.lookAt(r.from.clone().multiplyScalar(h+1));
       if(r.t >= 1){
         r.state = 'transfer'; r.t = 0;
-        r.mesh.userData.flame.visible = false;
+        u.flame.visible = false;
         r.startPos = r.mesh.position.clone().applyQuaternion(earth.quaternion);
         earth.remove(r.mesh); scene.add(r.mesh); r.mesh.position.copy(r.startPos);
       }
     } else if(r.state === 'transfer'){
-      r.t += dt/40;
+      r.t += mdt/40;
       const issPos = issPosAt(t);
       r.mesh.position.lerpVectors(r.startPos, issPos, Math.min(r.t,1));
       r.mesh.lookAt(issPos);
       if(r.t >= 1){ r.state = 'docked'; r.dockT = 0; }
     } else if(r.state === 'docked'){
-      r.dockT += dt;
+      r.dockT += dt; // 7с/5 у МКС
       r.mesh.position.copy(issPosAt(t)).add(new THREE.Vector3(-0.05,0,0));
-      if(r.dockT > 8){ r.state = 'undock'; r.t = 0; r.mesh.userData.flame.visible = true; r.undockStart = r.mesh.position.clone(); }
+      if(r.dockT > 7/ROCKET_SPEED_MUL){
+        r.state = 'undock'; r.t = 0; u.flame.visible = true;
+        r.undockStart = r.mesh.position.clone();
+      }
     } else if(r.state === 'undock'){
-      r.t += dt/20;
-      const away = r.undockStart.clone().normalize().multiplyScalar(r.undockStart.length()*(1+r.t*3));
+      r.t += mdt/16;
+      const away = r.undockStart.clone().normalize().multiplyScalar(r.undockStart.length()*(1+r.t*0.8));
       r.mesh.position.lerpVectors(r.undockStart, away, Math.min(r.t,1));
-      if(r.t >= 1){ r.mesh.visible = false; r.mesh.userData.flame.visible = false; scene.remove(r.mesh); r.state = 'idle'; }
+      if(r.t >= 1){
+        r.state = 'reentry'; r.t = 0;
+        u.flame.visible = false;
+        r.reentryStart = r.mesh.position.clone();
+        // цель — территория страны своего космодрома (снижение к дому)
+        r.reentryTarget = r.from.clone().applyQuaternion(earth.quaternion).multiplyScalar(1.03);
+      }
+    } else if(r.state === 'reentry'){
+      r.t += mdt/70;
+      r.mesh.position.lerpVectors(r.reentryStart, r.reentryTarget, Math.min(r.t,1));
+      r.mesh.lookAt(r.reentryTarget);
+      if(r.t >= 1){
+        r.state = 'burn'; r.t = 0;
+        u.rocketParts.visible = false; u.fireball.visible = true;
+        r.burnStart = r.mesh.position.clone();
+        r.burnTarget = r.from.clone().applyQuaternion(earth.quaternion).multiplyScalar(1.012);
+      }
+    } else if(r.state === 'burn'){
+      r.t += mdt/2.2;
+      r.mesh.position.lerpVectors(r.burnStart, r.burnTarget, Math.min(r.t,1));
+      u.fireball.scale.setScalar(1 - 0.5*Math.min(r.t,1));
+      if(r.t >= 1){
+        r.state = 'parachute'; r.t = 0;
+        u.fireball.visible = false; u.capsule.visible = true; u.chute.visible = true;
+        r.chuteStart = r.mesh.position.clone();
+        r.chuteTarget = r.from.clone().applyQuaternion(earth.quaternion).multiplyScalar(1.001);
+      }
+    } else if(r.state === 'parachute'){
+      r.t += mdt/9;
+      r.mesh.position.lerpVectors(r.chuteStart, r.chuteTarget, Math.min(r.t,1));
+      if(r.t >= 1){
+        r.state = 'landed'; r.t = 0;
+        u.capsule.visible = false; u.chute.visible = false; u.cosmo.visible = true;
+      }
+    } else if(r.state === 'landed'){
+      r.t += dt; // 4с/5 на месте посадки
+      if(r.t > 4/ROCKET_SPEED_MUL){
+        r.mesh.visible = false; u.cosmo.visible = false;
+        scene.remove(r.mesh); r.state = 'idle';
+      }
     }
   }
 }
@@ -894,10 +1097,27 @@ function selectTarget(target){
   focused = target;
   if(ui) ui.setFocused(target.name, speedMul(target.mesh));
 }
+let downPos = null;
+renderer.domElement.addEventListener('pointerdown', (e) => { downPos = {x:e.clientX, y:e.clientY}; });
 renderer.domElement.addEventListener('click', (e) => {
+  // клик после перетаскивания (вращение камеры) не должен выбирать объект
+  const dragged = downPos && Math.hypot(e.clientX-downPos.x, e.clientY-downPos.y) > 5;
+  downPos = null;
+  if(dragged) return;
   mouseNDC.x = (e.clientX/innerWidth)*2 - 1;
   mouseNDC.y = -(e.clientY/innerHeight)*2 + 1;
   raycaster.setFromCamera(mouseNDC, camera);
+  // маркеры (космодромы и т.п.) проверяем первыми — их хитбокс мал и лежит
+  // на поверхности Земли, поэтому сама Земля (в selectable) всегда "закрывала"
+  // бы клик, если проверять её раньше
+  const cosmoHits = raycaster.intersectObjects(hitMeshes, false)
+    .filter(h => h.object.userData.kind === 'cosmodrome' && h.object.parent.visible);
+  if(cosmoHits.length){
+    const pad = COSMODROMES.find(p => p[0] === cosmoHits[0].object.userData.name);
+    const idle = rocketPool.find(r => r.state === 'idle');
+    if(pad && idle) launchRocket(idle, pad);
+    return;
+  }
   const hits = raycaster.intersectObjects(selectable.map(s => s.mesh), false);
   let target = hits.length ? selectable.find(s => s.mesh === hits[0].object) : null;
   if(!target){
@@ -920,6 +1140,8 @@ selectable.forEach(s => {
 });
 
 let distScale = 3;
+const help = initHelp();
+initDescription({ onHelpClick: () => help.toggle() });
 const ui = initUI({
   onSpeedChange(v){ objectSpeed.set(focused.mesh, v); },
   onDistScaleChange(v){ distScale = v; },
@@ -930,7 +1152,8 @@ const ui = initUI({
     else if(key==='labels') document.body.classList.toggle('hide-labels', !val);
     else VIS[key] = val;
   },
-  onPauseToggle(v){ paused = v; }
+  onPauseToggle(v){ paused = v; },
+  onHelpToggle(){ help.toggle(); }
 });
 
 function updatePlanets(t){
@@ -980,9 +1203,9 @@ function animate(){
     if(idleTimer > 240) autoRotate = true;
   }
   if(!paused) clouds.rotation.y += 0.0013;
-  updateSatellites(simTime);
-  updatePlanes(effDt);
-  updateShips(effDt);
+  updateSatellites(simTime * currentTransportSpeed());
+  updatePlanes(effDt * currentTransportSpeed());
+  updateShips(effDt * currentTransportSpeed());
   updatePlanets(simTime);
   updateMoon(simTime);
   updateISS(simTime);
