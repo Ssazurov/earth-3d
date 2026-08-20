@@ -240,14 +240,20 @@ function updateMarkers(){
   const halfFovRad = THREE.MathUtils.degToRad(camera.fov/2);
   const earthDiaPx = innerHeight / (dist * Math.tan(halfFovRad));
   const widthLimit = earthDiaPx / 5;
+  citiesFirstVisible = false;
   for(const m of markers){
     const worldDir = m.dir.clone().applyQuaternion(earth.quaternion);
     const facing = worldDir.dot(camDir) > 0.1 && kindVisible(m.kind);
     const fitsWidth = m.label.element.offsetWidth < widthLimit;
-    m.label.element.style.opacity = (facing && m.tier <= maxTier && fitsWidth) ? '1' : '0';
+    const vis = facing && m.tier <= maxTier && fitsWidth;
+    m.label.element.style.opacity = vis ? '1' : '0';
     m.dot.visible = facing;
+    if(m.tier === 0 && vis) citiesFirstVisible = true;
   }
+  if(issLabel) issLabel.element.style.opacity = citiesFirstVisible ? '1' : '0';
 }
+let citiesFirstVisible = false;
+let issLabel = null;
 
 // --- спутники ---
 const satGroup = new THREE.Group();
@@ -271,12 +277,36 @@ for(let i=0;i<6;i++){
   const line = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({color:0x3399ff, transparent:true, opacity:0.25}));
   satGroup.add(line);
 
-  const sat = new THREE.Mesh(new THREE.BoxGeometry(0.014,0.014,0.014), new THREE.MeshStandardMaterial({color:0xdddddd, emissive:0x222222}));
+  const sat = makeSatelliteMesh();
   satGroup.add(sat);
   satellites.push({sat, radius, incl, node, speed, phase});
 }
+function makeSatelliteMesh(){
+  const g = new THREE.Group();
+  const bodyMat = new THREE.MeshStandardMaterial({color:0xd8d8d8, metalness:0.5, roughness:0.4});
+  const panelMat = new THREE.MeshStandardMaterial({color:0x16336b, metalness:0.4, roughness:0.4, emissive:0x0a1a3a});
+  g.add(new THREE.Mesh(new THREE.BoxGeometry(0.01,0.01,0.014), bodyMat));
+  [-1,1].forEach(side => {
+    const wing = new THREE.Mesh(new THREE.BoxGeometry(0.026,0.001,0.011), panelMat);
+    wing.position.x = side*0.02;
+    g.add(wing);
+    const strut = new THREE.Mesh(new THREE.CylinderGeometry(0.0007,0.0007,0.012,4), bodyMat);
+    strut.rotation.z = Math.PI/2;
+    strut.position.x = side*0.007;
+    g.add(strut);
+  });
+  const dish = new THREE.Mesh(new THREE.SphereGeometry(0.004,8,8,0,Math.PI*2,0,Math.PI/2), bodyMat);
+  dish.rotation.x = Math.PI/2;
+  dish.position.z = 0.008;
+  g.add(dish);
+  return g;
+}
 function updateSatellites(t){
-  for(const s of satellites) s.sat.position.copy(orbitPoint(s.radius, s.incl, s.node, s.phase + t*s.speed));
+  for(const s of satellites){
+    const pos = orbitPoint(s.radius, s.incl, s.node, s.phase + t*s.speed);
+    s.sat.position.copy(pos);
+    s.sat.lookAt(0,0,0);
+  }
 }
 
 // --- рейсы ---
@@ -285,27 +315,76 @@ const FLIGHT_ROUTES = [
   [CITIES[4], CITIES[13]], [CITIES[9], CITIES[11]], [CITIES[7], CITIES[14]]
 ];
 function makePlaneMesh(){
-  const geo = new THREE.ConeGeometry(0.006, 0.024, 6);
-  geo.rotateX(Math.PI/2);
-  return new THREE.Mesh(geo, new THREE.MeshStandardMaterial({color:0xffffff, emissive:0x111111}));
+  const g = new THREE.Group();
+  const bodyMat = new THREE.MeshStandardMaterial({color:0xf2f2f2, metalness:0.3, roughness:0.4});
+  const glassMat = new THREE.MeshStandardMaterial({color:0x2a3a4a, metalness:0.6, roughness:0.2});
+  const fuselage = new THREE.Mesh(new THREE.CylinderGeometry(0.0028,0.0028,0.022,8), bodyMat);
+  fuselage.rotation.x = Math.PI/2;
+  const nose = new THREE.Mesh(new THREE.ConeGeometry(0.0028,0.008,8), bodyMat);
+  nose.rotation.x = Math.PI/2;
+  nose.position.z = 0.015;
+  g.add(nose);
+  g.add(fuselage);
+  const cockpit = new THREE.Mesh(new THREE.SphereGeometry(0.0022,6,6), glassMat);
+  cockpit.position.z = 0.014;
+  g.add(cockpit);
+  const wing = new THREE.Mesh(new THREE.BoxGeometry(0.026,0.0008,0.006), bodyMat);
+  g.add(wing);
+  const tailFin = new THREE.Mesh(new THREE.BoxGeometry(0.0008,0.006,0.005), bodyMat);
+  tailFin.position.set(0,0.003,-0.011);
+  g.add(tailFin);
+  const stab = new THREE.Mesh(new THREE.BoxGeometry(0.012,0.0006,0.0035), bodyMat);
+  stab.position.z = -0.011;
+  g.add(stab);
+  const navL = new THREE.Mesh(new THREE.SphereGeometry(0.0009,6,6), new THREE.MeshBasicMaterial({color:0xff2222}));
+  navL.position.set(-0.013,0,0);
+  const navR = new THREE.Mesh(new THREE.SphereGeometry(0.0009,6,6), new THREE.MeshBasicMaterial({color:0x22ff44}));
+  navR.position.set(0.013,0,0);
+  g.add(navL, navR);
+  const trailGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,-0.012), new THREE.Vector3(0,0,-0.05)]);
+  const trail = new THREE.Line(trailGeo, new THREE.LineBasicMaterial({color:0xffffff, transparent:true, opacity:0.35}));
+  g.add(trail);
+  g.userData = {navL, navR, trail};
+  return g;
 }
 const planes = FLIGHT_ROUTES.map(([from, to]) => {
   const a = latLonToVec3(from[1], from[2], 1).normalize();
   const b = latLonToVec3(to[1],   to[2],   1).normalize();
   const mesh = makePlaneMesh();
   earth.add(mesh);
-  return {a, b, mesh, t: Math.random(), dur: 8 + Math.random()*4, alt: 0.12, forward: true};
+  return {a, b, mesh, t: 0, dur: (8 + Math.random()*4)*5, alt: 0.12, forward: true,
+    state: Math.random()<0.5?'flying':'grounded', groundT: Math.random()*10, groundWait: 12+Math.random()*18, blink: Math.random()*Math.PI*2};
 });
 const _p1 = new THREE.Vector3(), _p2 = new THREE.Vector3();
 function updatePlanes(dt){
   for(const p of planes){
+    p.blink += dt*4;
+    const on = Math.sin(p.blink) > 0.3;
+    p.mesh.userData.navL.visible = on;
+    p.mesh.userData.navR.visible = on;
+
+    if(p.state === 'grounded'){
+      p.groundT += dt;
+      p.mesh.userData.trail.visible = false;
+      const at = p.forward ? p.a : p.b;
+      p.mesh.position.copy(at);
+      if(p.groundT >= p.groundWait){
+        p.state = 'flying'; p.t = 0; p.forward = !p.forward;
+      }
+      continue;
+    }
+
+    p.mesh.userData.trail.visible = true;
     p.t += dt / p.dur;
-    if(p.t >= 1){ p.t = 0; p.forward = !p.forward; }
+    if(p.t >= 1){
+      p.t = 1; p.state = 'grounded'; p.groundT = 0; p.groundWait = 12 + Math.random()*18;
+    }
     const from = p.forward ? p.a : p.b, to = p.forward ? p.b : p.a;
     const h = 1 + p.alt*Math.sin(Math.PI*p.t);
 
     _p1.copy(from).lerp(to, p.t).normalize();
     p.mesh.position.copy(_p1).multiplyScalar(h);
+    p.mesh.up.copy(_p1);
 
     _p2.copy(from).lerp(to, Math.min(p.t+0.01,1)).normalize().multiplyScalar(h);
     p.mesh.lookAt(_p2);
@@ -326,20 +405,50 @@ const TANKER_ROUTES = [
   [[26.7,50.2],[26.6,56.5],[5,75],[2,101],[1.3,103.8]],
   [[6.5,3.4],[0,-10],[10,-45],[29.5,-95.0]]
 ];
-function buildSeaCraft(routes, color, size, kindLabel, durMin, durSpan){
+function makeHullMesh(size, color, isTanker){
+  // локальная ось движения — Z (как ожидает lookAt в updateSeaCraft)
+  const g = new THREE.Group();
+  const hullMat = new THREE.MeshStandardMaterial({color, metalness:0.2, roughness:0.6});
+  const deckMat = new THREE.MeshStandardMaterial({color:0xffffff, metalness:0.1, roughness:0.7});
+  const [W,H,L] = size;
+  const hull = new THREE.Mesh(new THREE.BoxGeometry(W,H,L), hullMat);
+  g.add(hull);
+  const bow = new THREE.Mesh(new THREE.ConeGeometry(W*0.55, L*0.22, 4), hullMat);
+  bow.rotation.x = -Math.PI/2; bow.rotation.z = Math.PI/4;
+  bow.position.set(0, 0, L/2 + L*0.06);
+  g.add(bow);
+  const bridge = new THREE.Mesh(new THREE.BoxGeometry(W*0.7,H*2.2,L*0.12), deckMat);
+  bridge.position.set(0, H*1.4, -L*0.33);
+  g.add(bridge);
+  if(isTanker){
+    const pipe = new THREE.Mesh(new THREE.CylinderGeometry(H*0.15,H*0.15,L*0.6,6), hullMat);
+    pipe.rotation.x = Math.PI/2;
+    pipe.position.set(0, H*0.8, L*0.05);
+    g.add(pipe);
+  } else {
+    const colors = [0xcc3333,0x3366cc,0xdddd33,0x33aa55];
+    for(let i=0;i<5;i++){
+      const box = new THREE.Mesh(new THREE.BoxGeometry(W*0.75,H*1.6,L*0.13), new THREE.MeshStandardMaterial({color:colors[i%colors.length]}));
+      box.position.set(0, H*1.1, -L*0.28 + i*L*0.15);
+      g.add(box);
+    }
+  }
+  return g;
+}
+function buildSeaCraft(routes, color, size, kindLabel, durMin, durSpan, isTanker){
   return routes.map(wps => {
     const pts = wps.map(([lat,lon]) => latLonToVec3(lat, lon, 1).normalize());
-    const mesh = new THREE.Mesh(new THREE.BoxGeometry(size[0], size[1], size[2]), new THREE.MeshStandardMaterial({color, emissive:0x111111}));
+    const mesh = makeHullMesh(size, color, isTanker);
     earth.add(mesh);
     const hit = new THREE.Mesh(new THREE.SphereGeometry(size[2]*1.6, 8, 8), new THREE.MeshBasicMaterial({visible:false}));
     hit.userData = {name: kindLabel, country:'', flag:''};
     mesh.add(hit);
     hitMeshes.push(hit);
-    return {pts, mesh, t: Math.random(), dur: durMin + Math.random()*durSpan, forward: Math.random() < 0.5};
+    return {pts, mesh, t: Math.random(), dur: (durMin + Math.random()*durSpan)*8, forward: Math.random() < 0.5};
   });
 }
-const ships   = buildSeaCraft(SHIP_ROUTES,   0xdddddd, [0.010,0.006,0.022], 'Контейнеровоз', 20, 12);
-const tankers = buildSeaCraft(TANKER_ROUTES, 0x2b2b2b, [0.013,0.008,0.030], 'Танкер',        24, 14);
+const ships   = buildSeaCraft(SHIP_ROUTES,   0xdddddd, [0.010,0.006,0.022], 'Контейнеровоз', 20, 12, false);
+const tankers = buildSeaCraft(TANKER_ROUTES, 0x2b2b2b, [0.013,0.008,0.030], 'Танкер',        24, 14, true);
 const _s1 = new THREE.Vector3(), _s2 = new THREE.Vector3();
 function updateSeaCraft(list, dt){
   for(const s of list){
@@ -642,6 +751,8 @@ scene.add(issMesh);
   const label = new THREE.CSS2DObject(div);
   label.position.set(0, 0.03, 0);
   issMesh.add(label);
+  issLabel = label;
+  issLabel.element.style.opacity = '0';
 }
 const issHit = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 8), new THREE.MeshBasicMaterial({visible:false}));
 issHit.userData = {name:'МКС', country:'', flag:''};
@@ -683,39 +794,63 @@ function updateCosmonaut(dt){
 
 // --- ракеты ---
 function makeRocket(){
-  const geo = new THREE.ConeGeometry(0.006, 0.03, 8);
-  geo.rotateX(Math.PI/2);
-  const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({color:0xffffff, emissive:0x222222}));
-  mesh.visible = false;
-  return mesh;
+  const g = new THREE.Group();
+  const bodyMat = new THREE.MeshStandardMaterial({color:0xf0f0f0, metalness:0.35, roughness:0.45});
+  const noseMat = new THREE.MeshStandardMaterial({color:0xcc4422, metalness:0.2, roughness:0.5});
+  const finMat = new THREE.MeshStandardMaterial({color:0x777777, metalness:0.3, roughness:0.5});
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.0035,0.0035,0.026,10), bodyMat);
+  body.rotation.x = Math.PI/2;
+  g.add(body);
+  const noseGeo = new THREE.ConeGeometry(0.0035, 0.014, 10);
+  noseGeo.rotateX(Math.PI/2);
+  const nose = new THREE.Mesh(noseGeo, noseMat);
+  nose.position.z = 0.02;
+  g.add(nose);
+  for(let i=0;i<4;i++){
+    const fin = new THREE.Mesh(new THREE.BoxGeometry(0.0012,0.007,0.007), finMat);
+    const ang = i*(Math.PI/2);
+    fin.position.set(Math.cos(ang)*0.0035, Math.sin(ang)*0.0035, -0.013);
+    fin.rotation.z = ang;
+    g.add(fin);
+  }
+  const flameGeo = new THREE.ConeGeometry(0.0026, 0.016, 8);
+  flameGeo.rotateX(-Math.PI/2);
+  const flame = new THREE.Mesh(flameGeo, new THREE.MeshBasicMaterial({color:0xffaa33, transparent:true, opacity:0.85}));
+  flame.position.z = -0.021;
+  g.add(flame);
+  g.userData.flame = flame;
+  g.visible = false;
+  return g;
 }
 const rocketPool = [];
-for(let i=0;i<2;i++) rocketPool.push({mesh:makeRocket(), state:'idle', t:0, from:null});
+for(let i=0;i<6;i++) rocketPool.push({mesh:makeRocket(), state:'idle', t:0, from:null});
 function launchRocket(r){
   const pad = COSMODROMES[Math.floor(Math.random()*COSMODROMES.length)];
   r.from = latLonToVec3(pad[1], pad[2], 1).normalize();
   earth.add(r.mesh);
   r.mesh.position.copy(r.from);
   r.mesh.visible = true;
+  r.mesh.userData.flame.visible = true;
   r.state = 'ascend'; r.t = 0;
 }
-let rocketTimer = 6 + Math.random()*8;
+let rocketTimer = 3 + Math.random()*4;
 function updateRockets(dt, t){
   rocketTimer -= dt;
   if(rocketTimer <= 0){
     const idle = rocketPool.find(r => r.state === 'idle');
     if(idle) launchRocket(idle);
-    rocketTimer = 15 + Math.random()*20;
+    rocketTimer = 6 + Math.random()*8;
   }
   for(const r of rocketPool){
     if(r.state === 'idle') continue;
     if(r.state === 'ascend'){
-      r.t += dt/48;
+      r.t += dt/240;
       const h = 1 + r.t*0.42;
       r.mesh.position.copy(r.from).multiplyScalar(h);
       r.mesh.lookAt(r.from.clone().multiplyScalar(h+1));
       if(r.t >= 1){
         r.state = 'transfer'; r.t = 0;
+        r.mesh.userData.flame.visible = false;
         r.startPos = r.mesh.position.clone().applyQuaternion(earth.quaternion);
         earth.remove(r.mesh); scene.add(r.mesh); r.mesh.position.copy(r.startPos);
       }
@@ -728,12 +863,12 @@ function updateRockets(dt, t){
     } else if(r.state === 'docked'){
       r.dockT += dt;
       r.mesh.position.copy(issPosAt(t)).add(new THREE.Vector3(-0.05,0,0));
-      if(r.dockT > 8){ r.state = 'undock'; r.t = 0; r.undockStart = r.mesh.position.clone(); }
+      if(r.dockT > 8){ r.state = 'undock'; r.t = 0; r.mesh.userData.flame.visible = true; r.undockStart = r.mesh.position.clone(); }
     } else if(r.state === 'undock'){
-      r.t += dt/4;
+      r.t += dt/20;
       const away = r.undockStart.clone().normalize().multiplyScalar(r.undockStart.length()*(1+r.t*3));
       r.mesh.position.lerpVectors(r.undockStart, away, Math.min(r.t,1));
-      if(r.t >= 1){ r.mesh.visible = false; scene.remove(r.mesh); r.state = 'idle'; }
+      if(r.t >= 1){ r.mesh.visible = false; r.mesh.userData.flame.visible = false; scene.remove(r.mesh); r.state = 'idle'; }
     }
   }
 }
