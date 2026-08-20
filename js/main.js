@@ -26,7 +26,7 @@ document.body.appendChild(labelRenderer.domElement);
 const controls = new THREE.OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.dampingFactor = 0.08;
-controls.minDistance = 1.4;
+controls.minDistance = 1.08;
 controls.maxDistance = 260;
 controls.enablePan = false;
 controls.rotateSpeed = 0.5;
@@ -52,13 +52,14 @@ scene.add(new THREE.AmbientLight(0x223355, 0.6));
 // --- текстуры Земли ---
 const loader = new THREE.TextureLoader();
 const TEX = 'https://threejs.org/examples/textures/planets/';
-const dayMap   = loader.load(TEX + 'earth_atmos_2048.jpg');
-const bumpMap  = loader.load(TEX + 'earth_normal_2048.jpg');
-const specMap  = loader.load(TEX + 'earth_specular_2048.jpg');
-const cloudMap = loader.load(TEX + 'earth_clouds_1024.png');
+const TEX4K = 'https://raw.githubusercontent.com/turban/webgl-earth/master/images/';
+const dayMap   = loader.load(TEX4K + '2_no_clouds_4k.jpg');
+const bumpMap  = loader.load(TEX4K + 'elev_bump_4k.jpg');
+const specMap  = loader.load(TEX4K + 'water_4k.png');
+const cloudMap = loader.load(TEX4K + 'fair_clouds_4k.png');
 [dayMap, bumpMap, specMap, cloudMap].forEach(t => { t.anisotropy = renderer.capabilities.getMaxAnisotropy(); });
 
-const earthGeo = new THREE.SphereGeometry(1, 128, 128);
+const earthGeo = new THREE.SphereGeometry(1, 256, 256);
 const earthMat = new THREE.MeshPhongMaterial({
   map: dayMap, bumpMap: bumpMap, bumpScale: 0.02,
   specularMap: specMap, specular: new THREE.Color(0x333333), shininess: 8
@@ -566,7 +567,7 @@ function makeMilkyWay(count, radius){
 skyGroup.add(makeMilkyWay(9000, SKY_R*0.96));
 
 // --- лог-шкала масштаба (движок в панели <-> колесо мыши) ---
-const ZOOM_MIN = 1.4, ZOOM_MAX = 260;
+const ZOOM_MIN = 1.08, ZOOM_MAX = 260;
 function distToZoomNorm(d){
   return (Math.log(d)-Math.log(ZOOM_MIN))/(Math.log(ZOOM_MAX)-Math.log(ZOOM_MIN));
 }
@@ -887,7 +888,7 @@ function selectTarget(target){
   const delta = new THREE.Vector3().subVectors(target.mesh.position, controls.target);
   camera.position.add(delta);
   controls.target.copy(target.mesh.position);
-  controls.minDistance = target.size*1.4 + 0.05;
+  controls.minDistance = target.isEarth ? 1.08 : target.size*1.4 + 0.05;
   controls.maxDistance = ZOOM_MAX; // единый диапазон для всех целей — движок зума всегда доходит до максимума
   autoRotate = !!target.isEarth;
   focused = target;
