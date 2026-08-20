@@ -22,7 +22,11 @@ const DEFAULTS = {
   capitalText: '#ffd76a',
   capitalTextOp: 100,
   capitalBg: '#001428',
-  capitalBgOp: 100
+  capitalBgOp: 100,
+  cosmodromeText: '#ff8a5c',
+  cosmodromeTextOp: 100,
+  cosmodromeBg: '#001428',
+  cosmodromeBgOp: 100
 };
 
 function hexToRgba(hex, opPct){
@@ -42,6 +46,8 @@ function applyColors(S){
   r.setProperty('--city-bg', hexToRgba(S.cityBg, S.cityBgOp));
   r.setProperty('--capital-text', hexToRgba(S.capitalText, S.capitalTextOp));
   r.setProperty('--capital-bg', hexToRgba(S.capitalBg, S.capitalBgOp));
+  r.setProperty('--cosmodrome-text', hexToRgba(S.cosmodromeText, S.cosmodromeTextOp));
+  r.setProperty('--cosmodrome-bg', hexToRgba(S.cosmodromeBg, S.cosmodromeBgOp));
 }
 
 export function initSettings(){
@@ -108,6 +114,8 @@ export function initSettings(){
       <label>Фон городов <span class="colwrap"><input type="color" id="s_cityBg"><input type="range" min="0" max="100" step="1" id="s_cityBgOp"></span></label>
       <label>Текст столиц <span class="colwrap"><input type="color" id="s_capitalText"><input type="range" min="0" max="100" step="1" id="s_capitalTextOp"></span></label>
       <label>Фон столиц <span class="colwrap"><input type="color" id="s_capitalBg"><input type="range" min="0" max="100" step="1" id="s_capitalBgOp"></span></label>
+      <label>Текст космодромов <span class="colwrap"><input type="color" id="s_cosmodromeText"><input type="range" min="0" max="100" step="1" id="s_cosmodromeTextOp"></span></label>
+      <label>Фон космодромов <span class="colwrap"><input type="color" id="s_cosmodromeBg"><input type="range" min="0" max="100" step="1" id="s_cosmodromeBgOp"></span></label>
 
       <button id="setSave">Сохранить и перезагрузить</button>
       <div id="setHint">Изменения (кроме цветов) применяются после перезагрузки страницы.</div>
@@ -119,7 +127,8 @@ export function initSettings(){
     'planeSpeedMul','seacraftSpeedMul','satelliteSpeedMul',
     'visConstellations','visCapitals','visCity','visPlant','visPlanets','visLabels',
     'cityText','cityTextOp','cityBg','cityBgOp',
-    'capitalText','capitalTextOp','capitalBg','capitalBgOp'];
+    'capitalText','capitalTextOp','capitalBg','capitalBgOp',
+    'cosmodromeText','cosmodromeTextOp','cosmodromeBg','cosmodromeBgOp'];
   function fillForm(){
     fields.forEach(f => {
       const el = overlay.querySelector('#s_'+f);
