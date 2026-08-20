@@ -183,6 +183,18 @@ function renderTooltipHTML(d){
   if(d.crew) html += `<br>Экипаж: ${d.crew}`;
   if(d.launchTime) html += `<br>Старт: ${fmtDT(d.launchTime)}`;
   if(d.landTime) html += `<br>Посадка: ${fmtDT(d.landTime)}`;
+  if(d.constellation) html += `<br>Созвездие: ${d.constellation}`;
+  if(d.alphaType) html += `<br>Класс: ${d.alphaType}`;
+  if(d.alphaDistLy != null) html += `<br>Расстояние от Земли: ${d.alphaDistLy} св. лет`;
+  if(d.alphaMag != null) html += `<br>Видимая величина: ${d.alphaMag}m`;
+  if(d.diameterKm) html += `<br>Диаметр: ${d.diameterKm.toLocaleString('ru-RU')} км`;
+  if(d.distSunMln) html += `<br>Расстояние от Солнца: ${d.distSunMln.toLocaleString('ru-RU')} млн км`;
+  if(d.distEarthMinMln) html += `<br>Мин. расстояние от Земли: ${d.distEarthMinMln.toLocaleString('ru-RU')} млн км`;
+  if(d.distEarthKm) html += `<br>Расстояние от Земли: ${d.distEarthKm.toLocaleString('ru-RU')} км`;
+  if(d.moons != null) html += `<br>Спутников: ${d.moons}`;
+  if(d.period) html += `<br>Период обращения: ${d.period}`;
+  if(d.rotPeriod) html += `<br>Период вращения: ${d.rotPeriod}`;
+  if(d.tempC) html += `<br>Температура поверхности: ${d.tempC}`;
   if(d.craft){
     const now = Date.now();
     const dep = new Date(now - d.craft.t*d.craft.dur*1000);
@@ -411,9 +423,16 @@ const planes = FLIGHT_ROUTES.map(([from, to]) => {
   const hit = new THREE.Mesh(new THREE.SphereGeometry(0.035, 8, 8), new THREE.MeshBasicMaterial({visible:false}));
   mesh.add(hit);
   hitMeshes.push(hit);
-  return {a, b, mesh, hit, cityFrom: from, cityTo: to, t: 0, dur: (8 + Math.random()*4)*5 / SETTINGS.planeSpeedMul, alt: 0.12, forward: true,
-    state: Math.random()<0.5?'flying':'grounded', groundT: Math.random()*10, groundWait: 12+Math.random()*18, blink: Math.random()*Math.PI*2};
+  return {a, b, mesh, hit, cityFrom: from, cityTo: to, t: 0, dur: (8 + Math.random()*4)*6 / SETTINGS.planeSpeedMul, alt: 0.12, forward: true,
+    state: 'grounded', groundT: Math.random()*10, groundWait: 12+Math.random()*18, blink: Math.random()*Math.PI*2};
 });
+// самолётов в воздухе одновременно должно быть 3–5: часть флота стартует уже в полёте
+const PLANES_MIN_AIRBORNE = 3, PLANES_MAX_AIRBORNE = 5;
+{
+  const initialAirborne = PLANES_MIN_AIRBORNE + Math.floor(Math.random()*(PLANES_MAX_AIRBORNE-PLANES_MIN_AIRBORNE+1));
+  const order = planes.map((_,i)=>i).sort(()=>Math.random()-0.5).slice(0, Math.min(initialAirborne, planes.length));
+  order.forEach(i => { planes[i].state = 'flying'; planes[i].t = Math.random(); });
+}
 const _p1 = new THREE.Vector3(), _p2 = new THREE.Vector3();
 function updatePlanes(dt){
   for(const p of planes){
@@ -434,7 +453,12 @@ function updatePlanes(dt){
       const at = p.forward ? p.a : p.b;
       p.mesh.position.copy(at);
       if(p.groundT >= p.groundWait){
-        p.state = 'flying'; p.t = 0; p.forward = !p.forward;
+        const airborne = planes.filter(x => x.state === 'flying').length;
+        if(airborne >= PLANES_MAX_AIRBORNE){
+          p.groundWait = p.groundT + 3 + Math.random()*5; // в воздухе уже максимум — ждём ещё
+        } else {
+          p.state = 'flying'; p.t = 0; p.forward = !p.forward;
+        }
       }
       continue;
     }
@@ -442,7 +466,12 @@ function updatePlanes(dt){
     p.mesh.userData.trail.visible = true;
     p.t += dt / p.dur;
     if(p.t >= 1){
-      p.t = 1; p.state = 'grounded'; p.groundT = 0; p.groundWait = 12 + Math.random()*18;
+      const airborne = planes.filter(x => x.state === 'flying').length;
+      if(airborne - 1 < PLANES_MIN_AIRBORNE){
+        p.t = 0; p.forward = !p.forward; // не даём числу в воздухе упасть ниже минимума — разворот без посадки
+      } else {
+        p.t = 1; p.state = 'grounded'; p.groundT = 0; p.groundWait = 12 + Math.random()*18;
+      }
     }
     const from = p.forward ? p.a : p.b, to = p.forward ? p.b : p.a;
     const h = 1 + p.alt*Math.sin(Math.PI*p.t);
@@ -517,7 +546,7 @@ function buildSeaCraft(routes, color, size, kindLabel, durMin, durSpan, isTanker
     const hit = new THREE.Mesh(new THREE.SphereGeometry(size[2]*1.6, 8, 8), new THREE.MeshBasicMaterial({visible:false}));
     mesh.add(hit);
     hitMeshes.push(hit);
-    const s = {pts, mesh, hit, route, t: Math.random(), dur: (durMin + Math.random()*durSpan)*8 / SETTINGS.seacraftSpeedMul, forward: Math.random() < 0.5};
+    const s = {pts, mesh, hit, route, t: Math.random(), dur: (durMin + Math.random()*durSpan)*3 / SETTINGS.seacraftSpeedMul, forward: Math.random() < 0.5};
     hit.userData = {
       name: route.vessel || kindLabel, country: route.from.country,
       from: `${route.from.name} (${route.from.country})`, to: `${route.to.name} (${route.to.country})`,
@@ -587,6 +616,15 @@ CONSTELLATIONS.forEach(c => {
   const alphaLabel = new THREE.CSS2DObject(alphaDiv);
   alphaLabel.position.copy(alphaPt);
   skyGroup.add(alphaLabel);
+
+  const alphaHit = new THREE.Mesh(new THREE.SphereGeometry(6, 8, 8), new THREE.MeshBasicMaterial({visible:false}));
+  alphaHit.position.copy(alphaPt);
+  alphaHit.userData = {
+    name: c.alpha, constellation: c.name,
+    alphaType: c.alphaType, alphaDistLy: c.alphaDistLy, alphaMag: c.alphaMag
+  };
+  skyGroup.add(alphaHit);
+  hitMeshes.push(alphaHit);
 });
 
 // --- мягкий спрайт-точка для звёзд и Млечного Пути ---
@@ -692,6 +730,13 @@ sunMesh.add(makeGlowSprite('rgba(255,245,220,1)', 'rgba(255,150,40,0)', 24));
   const label = new THREE.CSS2DObject(div);
   label.position.set(0, 4.1, 0);
   sunMesh.add(label);
+  const sunHit = new THREE.Mesh(new THREE.SphereGeometry(3.5*1.3, 8, 8), new THREE.MeshBasicMaterial({visible:false}));
+  sunHit.userData = {
+    name: 'Солнце', diameterKm: 1392700, distEarthMinMln: 149.6,
+    rotPeriod: '~25 сут (экватор)', tempC: '~5500°C (поверхность)'
+  };
+  sunMesh.add(sunHit);
+  hitMeshes.push(sunHit);
 }
 
 sun.position.copy(sunMesh.position).normalize().multiplyScalar(5);
@@ -749,6 +794,13 @@ PLANETS.forEach(p => {
   const label = new THREE.CSS2DObject(div);
   label.position.set(0, p.size+0.2, 0);
   mesh.add(label);
+  const hit = new THREE.Mesh(new THREE.SphereGeometry(p.size*1.5, 8, 8), new THREE.MeshBasicMaterial({visible:false}));
+  hit.userData = {
+    name: p.name, diameterKm: p.diameterKm, distSunMln: p.distSunMln,
+    distEarthMinMln: p.distEarthMinMln, moons: p.moons, period: p.period
+  };
+  mesh.add(hit);
+  hitMeshes.push(hit);
   solarBodies.push({mesh, dist:p.dist, speed:p.speed, phase:Math.random()*Math.PI*2, size:p.size, spin:p.spin});
 });
 
@@ -763,6 +815,13 @@ scene.add(moon);
   const label = new THREE.CSS2DObject(div);
   label.position.set(0, 0.27+0.15, 0);
   moon.add(label);
+  const moonHit = new THREE.Mesh(new THREE.SphereGeometry(0.27*1.5, 8, 8), new THREE.MeshBasicMaterial({visible:false}));
+  moonHit.userData = {
+    name: 'Луна', diameterKm: 3474, distEarthKm: 384400,
+    distSunMln: 149.6, moons: 0, period: '27.3 сут'
+  };
+  moon.add(moonHit);
+  hitMeshes.push(moonHit);
 }
 const moonOrbit = {dist:2.6, speed:0.18, incl:0.09, phase:Math.random()*Math.PI*2};
 function updateMoon(t){

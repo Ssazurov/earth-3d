@@ -16,10 +16,20 @@ const DEFAULTS = {
   visPlanets: true,
   visLabels: true,
   cityText: '#ffeded',
+  cityTextOp: 100,
   cityBg: '#001428',
+  cityBgOp: 100,
   capitalText: '#ffd76a',
-  capitalBg: '#001428'
+  capitalTextOp: 100,
+  capitalBg: '#001428',
+  capitalBgOp: 100
 };
+
+function hexToRgba(hex, opPct){
+  const h = hex.replace('#','');
+  const r = parseInt(h.substring(0,2),16), g = parseInt(h.substring(2,4),16), b = parseInt(h.substring(4,6),16);
+  return `rgba(${r},${g},${b},${(opPct/100).toFixed(2)})`;
+}
 
 export function loadSettings(){
   try{ return {...DEFAULTS, ...JSON.parse(localStorage.getItem(KEY) || '{}')}; }
@@ -28,10 +38,10 @@ export function loadSettings(){
 
 function applyColors(S){
   const r = document.documentElement.style;
-  r.setProperty('--city-text', S.cityText);
-  r.setProperty('--city-bg', S.cityBg);
-  r.setProperty('--capital-text', S.capitalText);
-  r.setProperty('--capital-bg', S.capitalBg);
+  r.setProperty('--city-text', hexToRgba(S.cityText, S.cityTextOp));
+  r.setProperty('--city-bg', hexToRgba(S.cityBg, S.cityBgOp));
+  r.setProperty('--capital-text', hexToRgba(S.capitalText, S.capitalTextOp));
+  r.setProperty('--capital-bg', hexToRgba(S.capitalBg, S.capitalBgOp));
 }
 
 export function initSettings(){
@@ -51,6 +61,8 @@ export function initSettings(){
   #setBox label{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:6px 0}
   #setBox input[type=number]{width:80px;background:#112233;color:#dff;border:1px solid rgba(255,255,255,.2);border-radius:4px;padding:3px 6px}
   #setBox input[type=color]{width:44px;height:26px;border:none;background:none;cursor:pointer}
+  .colwrap{display:flex;align-items:center;gap:6px}
+  .colwrap input[type=range]{width:80px}
   #setBox .chk{justify-content:flex-start}
   #setClose{position:absolute;top:10px;right:14px;background:none;border:none;
     color:#dff;font-size:20px;cursor:pointer;line-height:1}
@@ -92,10 +104,10 @@ export function initSettings(){
       <label class="chk"><input type="checkbox" id="s_visLabels"> Названия объектов</label>
 
       <h3>Цвета подписей</h3>
-      <label>Текст городов <input type="color" id="s_cityText"></label>
-      <label>Фон городов <input type="color" id="s_cityBg"></label>
-      <label>Текст столиц <input type="color" id="s_capitalText"></label>
-      <label>Фон столиц <input type="color" id="s_capitalBg"></label>
+      <label>Текст городов <span class="colwrap"><input type="color" id="s_cityText"><input type="range" min="0" max="100" step="1" id="s_cityTextOp"></span></label>
+      <label>Фон городов <span class="colwrap"><input type="color" id="s_cityBg"><input type="range" min="0" max="100" step="1" id="s_cityBgOp"></span></label>
+      <label>Текст столиц <span class="colwrap"><input type="color" id="s_capitalText"><input type="range" min="0" max="100" step="1" id="s_capitalTextOp"></span></label>
+      <label>Фон столиц <span class="colwrap"><input type="color" id="s_capitalBg"><input type="range" min="0" max="100" step="1" id="s_capitalBgOp"></span></label>
 
       <button id="setSave">Сохранить и перезагрузить</button>
       <div id="setHint">Изменения (кроме цветов) применяются после перезагрузки страницы.</div>
@@ -106,7 +118,8 @@ export function initSettings(){
   const fields = ['earthSpeed','sunDist','rocketPoolSize','ascendMul','parachuteMul',
     'planeSpeedMul','seacraftSpeedMul','satelliteSpeedMul',
     'visConstellations','visCapitals','visCity','visPlant','visPlanets','visLabels',
-    'cityText','cityBg','capitalText','capitalBg'];
+    'cityText','cityTextOp','cityBg','cityBgOp',
+    'capitalText','capitalTextOp','capitalBg','capitalBgOp'];
   function fillForm(){
     fields.forEach(f => {
       const el = overlay.querySelector('#s_'+f);
@@ -124,7 +137,7 @@ export function initSettings(){
     const out = {};
     fields.forEach(f => {
       const el = overlay.querySelector('#s_'+f);
-      out[f] = el.type === 'checkbox' ? el.checked : (el.type === 'number' ? parseFloat(el.value) : el.value);
+      out[f] = el.type === 'checkbox' ? el.checked : ((el.type === 'number' || el.type === 'range') ? parseFloat(el.value) : el.value);
     });
     localStorage.setItem(KEY, JSON.stringify(out));
     location.reload();

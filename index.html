@@ -8,7 +8,7 @@
   canvas{display:block}
   #hint{position:fixed;bottom:14px;left:14px;color:#8fa;font:12px monospace;
     opacity:.6;user-select:none;pointer-events:none}
-  :root{--city-text:#ffeded;--city-bg:#001428;--capital-text:#ffd76a;--capital-bg:#001428}
+  :root{--city-text:#ffeded;--city-bg:#001428;--capital-text:#ffd76a;--capital-bg:#001428;--cosmodrome-text:#ff8a5c;--cosmodrome-bg:#001428}
   .city-label{color:var(--city-text);font:11px/1.2 sans-serif;background:var(--city-bg);
     padding:2px 6px;border-radius:4px;white-space:nowrap;pointer-events:none;
     transition:opacity .15s;border:1px solid rgba(255,255,255,.15)}
@@ -18,13 +18,13 @@
   .city-label.city2{color:#009dff;background:rgba(128,138,148,.20);border:none}
   .city-label.plant{color:#7cffb2;border-color:rgba(124,255,178,.4)}
   .city-label.planet{color:#c9a9ff;border-color:rgba(201,169,255,.4);font-weight:600}
-  .city-label.cosmodrome{color:#ff8a5c;border-color:rgba(255,138,92,.4)}
-  .city-label.constellation-label{color:#7d8fb3;background:rgba(0,20,40,.3);border-color:rgba(125,143,179,.25);font-weight:400;letter-spacing:.5px}
-  .city-label.star{color:#ffe9a8;background:rgba(0,20,40,.4);border-color:rgba(255,204,51,.3);font-size:10px}
+  .city-label.cosmodrome{color:var(--cosmodrome-text);background:var(--cosmodrome-bg);border-color:rgba(255,138,92,.4)}
+  .city-label.constellation-label{color:#7d8fb3;background:rgba(0,20,40,.33);border-color:rgba(125,143,179,.25);font-weight:400;letter-spacing:.5px}
+  .city-label.star{color:#ffe9a8;background:rgba(0,20,40,.44);border-color:rgba(255,204,51,.3);font-size:10px}
 </style>
 </head>
 <body>
-<div id="hint">ЛКМ — вращение · колесо — зум (отдалитесь — увидите Солнечную систему) · ПКМ — пан · клик по планете/Луне/Солнцу — сделать её центром</div>
+<!-- <div id="hint">ЛКМ — вращение · колесо — зум (отдалитесь — увидите Солнечную систему) · ПКМ — пан · клик по планете/Луне/Солнцу — сделать её центром</div> -->
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/renderers/CSS2DRenderer.js"></script>

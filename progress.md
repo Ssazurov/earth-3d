@@ -211,3 +211,41 @@
   сохраняется в r.hit.userData.crew.
 - ⚠️ Не проверено в браузере.
 
+
+## Сделано (сессия: калибровка скорости транспорта + лимит самолётов)
+- js/main.js: базовый множитель длительности рейса самолётов 5→6 (планка
+  planeSpeedMul=1 в Настройках теперь соответствует этому базовому темпу).
+- js/main.js: базовый множитель длительности рейса кораблей/танкеров 8→3
+  (аналогично для seacraftSpeedMul=1).
+- js/main.js: добавлен жёсткий диапазон самолётов в воздухе одновременно —
+  3–5 (PLANES_MIN_AIRBORNE/PLANES_MAX_AIRBORNE). Старт: случайно 3–5 из 6
+  самолётов сразу в полёте (t случайный), остальные grounded. При посадке —
+  если в воздухе станет < 3, самолёт не садится, а разворачивается (t=0,
+  forward toggle). При взлёте — если в воздухе уже 5, взлёт откладывается
+  (groundWait продлевается на 3-8с), борт ждёт на земле дольше.
+- ⚠️ Не проверено в браузере.
+
+
+## Сделано (сессия: легенда альфа-звёзд/планет/Луны)
+- js/main.js: renderTooltipHTML расширен полями constellation/alphaType/
+  alphaDistLy/alphaMag (звёзды) и diameterKm/distSunMln/distEarthMinMln/
+  distEarthKm/moons/period (планеты, Луна).
+- js/main.js: альфа-звёздам добавлен hitMesh (userData: name=c.alpha,
+  constellation, alphaType, alphaDistLy, alphaMag) — данные уже были в
+  data.js CONSTELLATIONS, не хватало только хитбокса для тултипа.
+- js/main.js: планетам (solarBodies) добавлен hitMesh с userData из
+  PLANETS (diameterKm/distSunMln/distEarthMinMln/moons/period) — данные
+  тоже уже были в data.js.
+- js/main.js: Луне добавлен hitMesh, параметры заданы инлайн (нет в
+  data.js): diameterKm 3474, distEarthKm 384400 (среднее), distSunMln
+  149.6 (≈ как у Земли), period 27.3 сут.
+- ⚠️ Не проверено в браузере.
+
+## Сделано (сессия: легенда Солнца + прозрачность цветов настроек)
+- js/main.js: sunMesh получил hitMesh (легенда по наведению) — diameterKm
+  1392700, distEarthMinMln 149.6, rotPeriod, tempC (по аналогии с планетами).
+- js/settings.js: для 4 цветов подписей (cityText/cityBg/capitalText/
+  capitalBg) добавлены поля-прозрачности *Op (0-100, default 100),
+  hexToRgba() конвертирует hex+% в rgba при applyColors(). В форме — 4
+  новых range-слайдера.
+- ⚠️ Не проверено в браузере.
