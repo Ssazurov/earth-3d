@@ -8,12 +8,14 @@
   canvas{display:block}
   #hint{position:fixed;bottom:14px;left:14px;color:#8fa;font:12px monospace;
     opacity:.6;user-select:none;pointer-events:none}
-  .city-label{color:#fff;font:11px/1.2 sans-serif;background:rgba(0,20,40,.55);
+  :root{--city-text:#ffeded;--city-bg:#001428;--capital-text:#ffd76a;--capital-bg:#001428}
+  .city-label{color:var(--city-text);font:11px/1.2 sans-serif;background:var(--city-bg);
     padding:2px 6px;border-radius:4px;white-space:nowrap;pointer-events:none;
     transition:opacity .15s;border:1px solid rgba(255,255,255,.15)}
+  .city-label.capital{color:var(--capital-text);background:var(--capital-bg)}
   .city-label.landmark{color:#ffd76a;border-color:rgba(255,215,106,.35)}
-  .city-label.ru{color:#bfe6ff;background:rgba(128,138,148,.28);border:none}
-  .city-label.city2{color:#bfe6ff;background:rgba(128,138,148,.28);border:none}
+  .city-label.ru{color:#009dff;background:rgba(128,138,148,.20);border:none}
+  .city-label.city2{color:#009dff;background:rgba(128,138,148,.20);border:none}
   .city-label.plant{color:#7cffb2;border-color:rgba(124,255,178,.4)}
   .city-label.planet{color:#c9a9ff;border-color:rgba(201,169,255,.4);font-weight:600}
   .city-label.cosmodrome{color:#ff8a5c;border-color:rgba(255,138,92,.4)}

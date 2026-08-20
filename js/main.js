@@ -2,6 +2,9 @@ import { CITIES, LANDMARKS, PLANTS, RU_CITIES, CITIES2, COSMODROMES, SATELLITES,
 import { initDescription } from './description.js';
 import { initUI } from './ui.js';
 import { initHelp } from './help.js';
+import { initSettings, loadSettings } from './settings.js';
+
+const SETTINGS = loadSettings();
 
 // --- сцена, камера, рендер ---
 const scene = new THREE.Scene();
@@ -177,6 +180,9 @@ function renderTooltipHTML(d){
   if(d.purpose) html += `<br>Назначение: ${d.purpose}`;
   if(d.launchDate) html += `<br>Дата запуска: ${d.launchDate}`;
   if(d.eolDate) html += `<br>Срок активного существования до: ${d.eolDate}`;
+  if(d.crew) html += `<br>Экипаж: ${d.crew}`;
+  if(d.launchTime) html += `<br>Старт: ${fmtDT(d.launchTime)}`;
+  if(d.landTime) html += `<br>Посадка: ${fmtDT(d.landTime)}`;
   if(d.craft){
     const now = Date.now();
     const dep = new Date(now - d.craft.t*d.craft.dur*1000);
@@ -210,7 +216,7 @@ function addMarker(name, lat, lon, kind, country, flag, isCapital){
   earth.add(dot);
 
   const div = document.createElement('div');
-  div.className = 'city-label' + (kind !== 'city' ? ' ' + kind : '');
+  div.className = 'city-label' + (kind !== 'city' ? ' ' + kind : '') + (kind === 'city' && isCapital ? ' capital' : '');
   div.textContent = name;
   const label = new THREE.CSS2DObject(div);
   label.position.set(0,0,0);
@@ -255,9 +261,10 @@ renderer.domElement.addEventListener('mousemove', (e) => {
   }
 });
 
-const VIS = {constellations:true, city:true, capitals:true, plant:false, planets:true, labels:true};
-// скорость вращения Земли по умолчанию на панели — 0.3×
-const EARTH_DEFAULT_SPEED = 0.3;
+const VIS = {constellations:SETTINGS.visConstellations, city:SETTINGS.visCity, capitals:SETTINGS.visCapitals,
+  plant:SETTINGS.visPlant, planets:SETTINGS.visPlanets, labels:SETTINGS.visLabels};
+// скорость вращения Земли по умолчанию на панели
+const EARTH_DEFAULT_SPEED = SETTINGS.earthSpeed;
 const objectSpeed = new Map();
 objectSpeed.set(earth, EARTH_DEFAULT_SPEED);
 // реальная скорость самолётов/кораблей/ракет/спутников привязана к текущей
@@ -310,7 +317,7 @@ for(let i=0;i<6;i++){
   const radius = 1.35 + Math.random()*0.35;
   const incl = Math.random()*Math.PI;
   const node = Math.random()*Math.PI*2;
-  const speed = 0.15 + Math.random()*0.25;
+  const speed = (0.15 + Math.random()*0.25) * SETTINGS.satelliteSpeedMul;
   const phase = Math.random()*Math.PI*2;
 
   const pts = [];
@@ -404,7 +411,7 @@ const planes = FLIGHT_ROUTES.map(([from, to]) => {
   const hit = new THREE.Mesh(new THREE.SphereGeometry(0.035, 8, 8), new THREE.MeshBasicMaterial({visible:false}));
   mesh.add(hit);
   hitMeshes.push(hit);
-  return {a, b, mesh, hit, cityFrom: from, cityTo: to, t: 0, dur: (8 + Math.random()*4)*5, alt: 0.12, forward: true,
+  return {a, b, mesh, hit, cityFrom: from, cityTo: to, t: 0, dur: (8 + Math.random()*4)*5 / SETTINGS.planeSpeedMul, alt: 0.12, forward: true,
     state: Math.random()<0.5?'flying':'grounded', groundT: Math.random()*10, groundWait: 12+Math.random()*18, blink: Math.random()*Math.PI*2};
 });
 const _p1 = new THREE.Vector3(), _p2 = new THREE.Vector3();
@@ -510,7 +517,7 @@ function buildSeaCraft(routes, color, size, kindLabel, durMin, durSpan, isTanker
     const hit = new THREE.Mesh(new THREE.SphereGeometry(size[2]*1.6, 8, 8), new THREE.MeshBasicMaterial({visible:false}));
     mesh.add(hit);
     hitMeshes.push(hit);
-    const s = {pts, mesh, hit, route, t: Math.random(), dur: (durMin + Math.random()*durSpan)*8, forward: Math.random() < 0.5};
+    const s = {pts, mesh, hit, route, t: Math.random(), dur: (durMin + Math.random()*durSpan)*8 / SETTINGS.seacraftSpeedMul, forward: Math.random() < 0.5};
     hit.userData = {
       name: route.vessel || kindLabel, country: route.from.country,
       from: `${route.from.name} (${route.from.country})`, to: `${route.to.name} (${route.to.country})`,
@@ -873,6 +880,28 @@ const LAUNCH_WORDS = {
   'Россия': 'Поехали!', 'Казахстан': 'Кеттik!', 'США': 'Liftoff!', 'Франция': 'Allumage !'
 };
 function launchWordFor(country){ return LAUNCH_WORDS[country] || 'Поехали!'; }
+// экипаж: фамилии на языке страны + инициалы в её алфавите (кириллица/латиница)
+const CREW_SURNAMES = {
+  'Россия':     ['Иванов','Петров','Соколов','Кузнецов','Морозов','Волков','Новиков','Егоров'],
+  'Казахстан':  ['Нурланов','Абенов','Жаксыбеков','Сатпаев','Сериков','Токтаров'],
+  'США':        ['Smith','Johnson','Miller','Davis','Wilson','Anderson','Clark'],
+  'Франция':    ['Dupont','Martin','Bernard','Petit','Robert','Moreau']
+};
+function randomInitial(cyrillic){
+  const letters = cyrillic ? 'АБВГДЕЖЗИКЛМНОПРСТУФХЦЧШЭЮЯ' : 'ABCDEFGHJKLMNOPRSTVW';
+  return letters[Math.floor(Math.random()*letters.length)];
+}
+function makeCrew(country){
+  const cyrillic = country === 'Россия' || country === 'Казахстан';
+  const pool = (CREW_SURNAMES[country] || CREW_SURNAMES['Россия']).slice();
+  const n = 2 + Math.floor(Math.random()*2); // 2 или 3 члена экипажа
+  const crew = [];
+  for(let i=0;i<n && pool.length;i++){
+    const surname = pool.splice(Math.floor(Math.random()*pool.length),1)[0];
+    crew.push(`${surname} ${randomInitial(cyrillic)}.${randomInitial(cyrillic)}.`);
+  }
+  return crew;
+}
 let _chuteTex = null;
 function getParachuteTexture(){
   if(_chuteTex) return _chuteTex;
@@ -913,7 +942,7 @@ function makeRocket(){
   g.add(rocketParts);
 
   // огненный шар — сгорание в атмосфере при возвращении
-  const fireball = new THREE.Mesh(new THREE.SphereGeometry(0.004, 8, 8), new THREE.MeshBasicMaterial({color:0xff7733}));
+  const fireball = new THREE.Mesh(new THREE.SphereGeometry(0.011, 8, 8), new THREE.MeshBasicMaterial({color:0xff7733}));
   fireball.visible = false;
   g.add(fireball);
 
@@ -943,7 +972,7 @@ function makeRocket(){
   return g;
 }
 const rocketPool = [];
-for(let i=0;i<6;i++){
+for(let i=0;i<SETTINGS.rocketPoolSize;i++){
   const mesh = makeRocket();
   const hit = new THREE.Mesh(new THREE.SphereGeometry(0.02, 8, 8), new THREE.MeshBasicMaterial({visible:false}));
   hit.userData = {name:'Ракета', country:'', flag:'', from:'', to:''};
@@ -956,25 +985,31 @@ function nextCosmodrome(){ const pad = COSMODROMES[cosmoIdx % COSMODROMES.length
 function launchRocket(r, pad){
   pad = pad || nextCosmodrome();
   r.from = latLonToVec3(pad[1], pad[2], 1).normalize();
+  r.padLat = pad[1]; r.padLon = pad[2];
   earth.add(r.mesh);
   r.mesh.position.copy(r.from);
+  r.mesh.lookAt(r.from.clone().multiplyScalar(2)); // сразу вертикально, носом от земли, а не лёжа
   r.mesh.visible = true;
   const u = r.mesh.userData;
   u.rocketParts.visible = true; u.flame.visible = false;
   u.fireball.visible = false; u.capsule.visible = false; u.chute.visible = false; u.cosmo.visible = false;
   r.state = 'countdown'; r.t = 0; r.lastNum = null;
   r.launchWord = launchWordFor(pad[3]);
+  r.crew = makeCrew(pad[3]);
+  r.launchTime = new Date();
+  r.landTime = null;
   activeCountdownRocket = r;
   r.hit.userData = {
     name: 'Ракета', flag: pad[4], country: pad[3],
-    from: `${pad[0]} (${pad[3]})`, to: 'МКС (околоземная орбита)'
+    from: `${pad[0]} (${pad[3]})`, to: 'МКС (околоземная орбита)',
+    crew: r.crew.join(', '), launchTime: r.launchTime
   };
 }
 let activeCountdownRocket = null;
 let rocketTimer = (5 + Math.random()*6)/5;
 let launchCount = 0;
 let pendingLaunch = null;
-const ROCKET_SPEED_MUL = 15; // весь сценарий ракет (движение + таймеры) ×15 (базовые ×5, ускорено ×3)
+const ROCKET_SPEED_MUL = 5; // базовая скорость сценария ракет (движение + таймеры)
 function updateRockets(dt, t){
   // --- автозапуски отключены: ракета летит только по клику на космодром ---
   // if(pendingLaunch){
@@ -1012,7 +1047,7 @@ function updateRockets(dt, t){
         r.state = 'ascend'; r.t = 0;
       }
     } else if(r.state === 'ascend'){
-      r.t += mdt/240;
+      r.t += mdt/120*SETTINGS.ascendMul; // отрыв от земли ×2 к базовой скорости
       const h = 1 + r.t*0.42;
       r.mesh.position.copy(r.from).multiplyScalar(h);
       r.mesh.lookAt(r.from.clone().multiplyScalar(h+1));
@@ -1029,9 +1064,9 @@ function updateRockets(dt, t){
       r.mesh.lookAt(issPos);
       if(r.t >= 1){ r.state = 'docked'; r.dockT = 0; }
     } else if(r.state === 'docked'){
-      r.dockT += dt; // 7с/5 у МКС
+      r.dockT += dt; // ровно 10 реальных секунд у МКС, не зависит от ROCKET_SPEED_MUL/скорости транспорта
       r.mesh.position.copy(issPosAt(t)).add(new THREE.Vector3(-0.05,0,0));
-      if(r.dockT > 7/ROCKET_SPEED_MUL){
+      if(r.dockT > 10){
         r.state = 'undock'; r.t = 0; u.flame.visible = true;
         r.undockStart = r.mesh.position.clone();
       }
@@ -1043,42 +1078,66 @@ function updateRockets(dt, t){
         r.state = 'reentry'; r.t = 0;
         u.flame.visible = false;
         r.reentryStart = r.mesh.position.clone();
-        // цель — территория страны своего космодрома (снижение к дому)
-        r.reentryTarget = r.from.clone().applyQuaternion(earth.quaternion).multiplyScalar(1.03);
+        // точка посадки считается один раз при входе в атмосферу: рядом с космодромом
+        // (в стороне, не точно на него), в системе координат Земли — чтобы вращение
+        // планеты по пути отслеживалось само собой при пересчёте через earth.quaternion
+        const offAngle = THREE.MathUtils.degToRad(4 + Math.random()*5); // 4–9° от космодрома
+        const axis = new THREE.Vector3(Math.random()-0.5, Math.random()-0.5, Math.random()-0.5).normalize();
+        r.landLocal = r.from.clone().applyQuaternion(new THREE.Quaternion().setFromAxisAngle(axis, offAngle));
       }
     } else if(r.state === 'reentry'){
       r.t += mdt/70;
-      r.mesh.position.lerpVectors(r.reentryStart, r.reentryTarget, Math.min(r.t,1));
-      r.mesh.lookAt(r.reentryTarget);
+      // высокая фаза спуска — ракета ещё цела, просто снижается издалека
+      const target = r.landLocal.clone().applyQuaternion(earth.quaternion).multiplyScalar(1.25);
+      r.mesh.position.lerpVectors(r.reentryStart, target, Math.min(r.t,1));
+      r.mesh.lookAt(target);
       if(r.t >= 1){
         r.state = 'burn'; r.t = 0;
         u.rocketParts.visible = false; u.fireball.visible = true;
+        u.fireball.scale.setScalar(1);
         r.burnStart = r.mesh.position.clone();
-        r.burnTarget = r.from.clone().applyQuaternion(earth.quaternion).multiplyScalar(1.012);
       }
     } else if(r.state === 'burn'){
-      r.t += mdt/2.2;
-      r.mesh.position.lerpVectors(r.burnStart, r.burnTarget, Math.min(r.t,1));
+      r.t += mdt/4;
+      // фаза горения в атмосфере — заметное снижение, шар хорошо виден
+      const target = r.landLocal.clone().applyQuaternion(earth.quaternion).multiplyScalar(1.05);
+      r.mesh.position.lerpVectors(r.burnStart, target, Math.min(r.t,1));
+      r.mesh.lookAt(target);
       u.fireball.scale.setScalar(1 - 0.5*Math.min(r.t,1));
       if(r.t >= 1){
         r.state = 'parachute'; r.t = 0;
         u.fireball.visible = false; u.capsule.visible = true; u.chute.visible = true;
         r.chuteStart = r.mesh.position.clone();
-        r.chuteTarget = r.from.clone().applyQuaternion(earth.quaternion).multiplyScalar(1.001);
       }
     } else if(r.state === 'parachute'){
-      r.t += mdt/9;
-      r.mesh.position.lerpVectors(r.chuteStart, r.chuteTarget, Math.min(r.t,1));
+      r.t += mdt/9*SETTINGS.parachuteMul;
+      const target = r.landLocal.clone().applyQuaternion(earth.quaternion).multiplyScalar(1.001);
+      r.mesh.position.lerpVectors(r.chuteStart, target, Math.min(r.t,1));
+      r.mesh.lookAt(target);
       if(r.t >= 1){
+        // приземление: шар (капсула) остаётся лежать на поверхности,
+        // парашют гасим, рядом выходит космонавт — и всё это стоит
+        // на месте до перезагрузки страницы (пул ракет не освобождается)
         r.state = 'landed'; r.t = 0;
-        u.capsule.visible = false; u.chute.visible = false; u.cosmo.visible = true;
+        u.chute.visible = false; u.cosmo.visible = true;
+        // до посадки r.mesh был ребёнком scene (мировые координаты, см. reparent
+        // при переходе ascend→transfer). Если оставить как есть, Земля продолжает
+        // вращаться, а капсула — нет: она "плывёт" в мировом пространстве и рано
+        // или поздно уходит на невидимую сторону/под поверхность. Возвращаем её
+        // обратно в локальную систему Земли — дальше вращение подхватывается само.
+        scene.remove(r.mesh);
+        r.mesh.position.copy(r.landLocal).multiplyScalar(1.001);
+        r.mesh.lookAt(r.landLocal.clone().multiplyScalar(1.02));
+        earth.add(r.mesh);
+        r.landTime = new Date();
+        r.hit.userData = {
+          name: 'Спускаемая капсула', flag: r.hit.userData.flag, country: r.hit.userData.country,
+          from: r.hit.userData.from, to: r.hit.userData.to,
+          crew: r.hit.userData.crew, launchTime: r.hit.userData.launchTime, landTime: r.landTime
+        };
       }
     } else if(r.state === 'landed'){
-      r.t += dt; // 4с/5 на месте посадки
-      if(r.t > 4/ROCKET_SPEED_MUL){
-        r.mesh.visible = false; u.cosmo.visible = false;
-        scene.remove(r.mesh); r.state = 'idle';
-      }
+      // ничего не делаем — капсула и космонавт остаются до перезагрузки окна
     }
   }
 }
@@ -1145,8 +1204,9 @@ selectable.forEach(s => {
   }
 });
 
-let distScale = 3;
+let distScale = SETTINGS.sunDist;
 const help = initHelp();
+const settingsUI = initSettings();
 initDescription({ onHelpClick: () => help.toggle() });
 const ui = initUI({
   onSpeedChange(v){ objectSpeed.set(focused.mesh, v); },
@@ -1159,8 +1219,13 @@ const ui = initUI({
     else VIS[key] = val;
   },
   onPauseToggle(v){ paused = v; },
-  onHelpToggle(){ help.toggle(); }
+  onHelpToggle(){ help.toggle(); },
+  onSettingsToggle(){ settingsUI.toggle(); },
+  settings: SETTINGS
 });
+if(!VIS.labels) document.body.classList.add('hide-labels');
+skyGroup.visible = VIS.constellations;
+solarBodies.forEach(b => b.mesh.visible = VIS.planets);
 
 function updatePlanets(t){
   sunMesh.position.copy(sunDir).multiplyScalar(SUN_BASE_DIST*distScale);

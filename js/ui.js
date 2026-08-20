@@ -1,5 +1,7 @@
 // --- панель управления (правая боковая) ---
-export function initUI({ onSpeedChange, onToggle, onPauseToggle, onDistScaleChange, onZoomChange, onHelpToggle }){
+export function initUI({ onSpeedChange, onToggle, onPauseToggle, onDistScaleChange, onZoomChange, onHelpToggle, onSettingsToggle, settings }){
+  const S = settings || {};
+  const es = S.earthSpeed ?? 0.3, sd = S.sunDist ?? 3;
   const style = document.createElement('style');
   style.textContent = `
   #panel{position:fixed;top:0;right:0;width:220px;height:100%;background:rgba(0,10,20,.75);
@@ -12,9 +14,9 @@ export function initUI({ onSpeedChange, onToggle, onPauseToggle, onDistScaleChan
   #panelFooter.collapsed{transform:translateX(220px)}
   #panelFooter .footerTitle{font-weight:600}
   #panelFooter .footerVersion{margin-top:2px;color:#8fd}
-  #panelFooter #helpLink{display:block;margin-top:4px;font-size:11px;color:#9ab;
+  #panelFooter #helpLink,#panelFooter #settingsLink{display:block;margin-top:4px;font-size:11px;color:#9ab;
     text-decoration:none}
-  #panelFooter #helpLink:hover{text-decoration:underline}
+  #panelFooter #helpLink:hover,#panelFooter #settingsLink:hover{text-decoration:underline}
   #panel.collapsed{transform:translateX(220px)}
   #panelToggle{position:fixed;top:14px;right:220px;z-index:31;width:28px;height:36px;
     background:rgba(0,10,20,.75);color:#dff;border:1px solid rgba(255,255,255,.15);
@@ -40,19 +42,19 @@ export function initUI({ onSpeedChange, onToggle, onPauseToggle, onDistScaleChan
   panel.id = 'panel';
   panel.innerHTML = `
     <h3>Объект: <span id="focusedName">Земля</span></h3>
-    <label>Скорость вращения <span id="speedVal">0.3×</span></label>
-    <input type="range" id="speedRange" min="0" max="3" step="0.02" value="0.3">
-    <h3>Расстояние Земля–Солнце <span id="distVal">3×</span></h3>
-    <input type="range" id="distRange" min="1" max="15" step="0.1" value="3">
+    <label>Скорость вращения <span id="speedVal">${es.toFixed(2)}×</span></label>
+    <input type="range" id="speedRange" min="0" max="3" step="0.02" value="${es}">
+    <h3>Расстояние Земля–Солнце <span id="distVal">${sd.toFixed(1)}×</span></h3>
+    <input type="range" id="distRange" min="1" max="15" step="0.1" value="${sd}">
     <h3>Масштаб <span id="zoomVal">–</span></h3>
     <input type="range" id="zoomRange" min="0" max="1" step="0.001" value="0">
     <h3>Показ</h3>
-    <label><input type="checkbox" id="chkConst" checked> Созвездия</label>
-    <label><input type="checkbox" id="chkCapital" checked> Столицы</label>
-    <label><input type="checkbox" id="chkCity" checked> Города</label>
-    <label><input type="checkbox" id="chkPlant"> Электростанции</label>
-    <label><input type="checkbox" id="chkPlanets" checked> Планеты</label>
-    <label><input type="checkbox" id="chkLabels" checked> Названия объектов</label>
+    <label><input type="checkbox" id="chkConst" ${S.visConstellations!==false?'checked':''}> Созвездия</label>
+    <label><input type="checkbox" id="chkCapital" ${S.visCapitals!==false?'checked':''}> Столицы</label>
+    <label><input type="checkbox" id="chkCity" ${S.visCity!==false?'checked':''}> Города</label>
+    <label><input type="checkbox" id="chkPlant" ${S.visPlant?'checked':''}> Электростанции</label>
+    <label><input type="checkbox" id="chkPlanets" ${S.visPlanets!==false?'checked':''}> Планеты</label>
+    <label><input type="checkbox" id="chkLabels" ${S.visLabels!==false?'checked':''}> Названия объектов</label>
     <button id="btnPause">⏸ Остановить</button>
   `;
   document.body.appendChild(panel);
@@ -63,6 +65,7 @@ export function initUI({ onSpeedChange, onToggle, onPauseToggle, onDistScaleChan
     <div class="footerTitle">Вдохновение космосом</div>
     <div class="footerVersion">Версия v0.1</div>
     <a id="helpLink" href="#">ℹ️ Справка</a>
+    <a id="settingsLink" href="#">⚙️ Настройки</a>
   `;
   document.body.appendChild(panelFooter);
 
@@ -119,6 +122,10 @@ export function initUI({ onSpeedChange, onToggle, onPauseToggle, onDistScaleChan
   panelFooter.querySelector('#helpLink').addEventListener('click', (e) => {
     e.preventDefault();
     onHelpToggle && onHelpToggle();
+  });
+  panelFooter.querySelector('#settingsLink').addEventListener('click', (e) => {
+    e.preventDefault();
+    onSettingsToggle && onSettingsToggle();
   });
 
   return {
