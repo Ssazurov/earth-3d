@@ -2,7 +2,11 @@
 очень экономь токены
 если в процессе реализации задачи все хорошо, отвечай только "готово"
 \\wsl.localhost\Ubuntu\home\vector\projects\earth-3d
-используй desktop commander
+сайт dev версии http://localhost:8080/index.html
+используй desktop commander и gh
 обновляй progress.md чтобы не искать по коду
 логически завершенные блоки контента и действий выноси в отдельные файлы
-в гит коммить только по моему запросу  https://github.com/users/Ssazurov/projects/2 
+в гит коммить только по моему запросу https://github.com/users/Ssazurov/projects/2
+релизы https://github.com/Ssazurov/earth-3d/releases/tag/v0.2
+когда я даю тебе задачу, если она требует, то создавай ADR, потом одну или несколько задач к ней в нит проекта
+https://github.com/Ssazurov/earth-3d

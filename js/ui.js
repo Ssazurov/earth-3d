@@ -1,3 +1,22 @@
+// версия из последнего релиза GitHub (с кешем в localStorage на случай офлайна/rate-limit)
+async function loadLatestVersion(el){
+  const cacheKey = 'earth3d_latest_version';
+  const cached = localStorage.getItem(cacheKey);
+  if(cached) el.textContent = 'Версия ' + cached;
+  try{
+    const res = await fetch('https://api.github.com/repos/Ssazurov/earth-3d/releases/latest');
+    if(!res.ok) throw new Error('bad status');
+    const data = await res.json();
+    const tag = data.tag_name;
+    if(tag){
+      el.textContent = 'Версия ' + tag;
+      localStorage.setItem(cacheKey, tag);
+    }
+  }catch(e){
+    if(!cached) el.textContent = 'Версия —';
+  }
+}
+
 // --- панель управления (правая боковая) ---
 export function initUI({ onSpeedChange, onToggle, onPauseToggle, onDistScaleChange, onZoomChange, onHelpToggle, onSettingsToggle, settings }){
   const S = settings || {};
@@ -42,7 +61,7 @@ export function initUI({ onSpeedChange, onToggle, onPauseToggle, onDistScaleChan
   panel.id = 'panel';
   panel.innerHTML = `
     <h3>Объект: <span id="focusedName">Земля</span></h3>
-    <label>Скорость вращения <span id="speedVal">${es.toFixed(2)}×</span></label>
+    <label>Скорость симуляции <span id="speedVal">${es.toFixed(2)}×</span></label>
     <input type="range" id="speedRange" min="0" max="3" step="0.02" value="${es}">
     <h3>Расстояние Земля–Солнце <span id="distVal">${sd.toFixed(1)}×</span></h3>
     <input type="range" id="distRange" min="1" max="15" step="0.1" value="${sd}">
@@ -63,11 +82,12 @@ export function initUI({ onSpeedChange, onToggle, onPauseToggle, onDistScaleChan
   panelFooter.id = 'panelFooter';
   panelFooter.innerHTML = `
     <div class="footerTitle">Вдохновение космосом</div>
-    <div class="footerVersion">Версия v0.1</div>
+    <div class="footerVersion" id="footerVersion">Версия …</div>
     <a id="helpLink" href="#">ℹ️ Справка</a>
     <a id="settingsLink" href="#">⚙️ Настройки</a>
   `;
   document.body.appendChild(panelFooter);
+  loadLatestVersion(panelFooter.querySelector('#footerVersion'));
 
   const toggleBtn = document.createElement('button');
   toggleBtn.id = 'panelToggle';
@@ -82,10 +102,22 @@ export function initUI({ onSpeedChange, onToggle, onPauseToggle, onDistScaleChan
 
   const speedRange = panel.querySelector('#speedRange');
   const speedVal = panel.querySelector('#speedVal');
+  let speedDragging = false;
+  speedRange.addEventListener('pointerdown', () => {
+    speedDragging = true;
+    onPauseToggle(true);
+  });
+  speedRange.addEventListener('pointerup', () => {
+    if(speedDragging){
+      speedDragging = false;
+      const v = parseFloat(speedRange.value);
+      onSpeedChange(v);
+      if(!paused) onPauseToggle(false);
+    }
+  });
   speedRange.addEventListener('input', () => {
     const v = parseFloat(speedRange.value);
     speedVal.textContent = v.toFixed(2) + '×';
-    onSpeedChange(v);
   });
 
   const distRange = panel.querySelector('#distRange');
