@@ -1,10 +1,20 @@
 // --- панель управления (правая боковая) ---
-export function initUI({ onSpeedChange, onToggle, onPauseToggle, onDistScaleChange, onZoomChange }){
+export function initUI({ onSpeedChange, onToggle, onPauseToggle, onDistScaleChange, onZoomChange, onHelpToggle }){
   const style = document.createElement('style');
   style.textContent = `
   #panel{position:fixed;top:0;right:0;width:220px;height:100%;background:rgba(0,10,20,.75);
-    color:#dff;font:13px sans-serif;padding:14px;box-sizing:border-box;z-index:30;
+    color:#dff;font:13px sans-serif;padding:14px;padding-bottom:70px;box-sizing:border-box;z-index:30;
     border-left:1px solid rgba(255,255,255,.15);overflow-y:auto;transition:transform .25s}
+  #panelFooter{position:fixed;bottom:0;right:0;width:220px;box-sizing:border-box;padding:10px 14px;
+    background:rgba(0,10,20,.9);border-left:1px solid rgba(255,255,255,.15);
+    border-top:1px solid rgba(255,255,255,.15);color:#dff;font:13px sans-serif;
+    text-align:center;z-index:31;transition:transform .25s}
+  #panelFooter.collapsed{transform:translateX(220px)}
+  #panelFooter .footerTitle{font-weight:600}
+  #panelFooter .footerVersion{margin-top:2px;color:#8fd}
+  #panelFooter #helpLink{display:block;margin-top:4px;font-size:11px;color:#9ab;
+    text-decoration:none}
+  #panelFooter #helpLink:hover{text-decoration:underline}
   #panel.collapsed{transform:translateX(220px)}
   #panelToggle{position:fixed;top:14px;right:220px;z-index:31;width:28px;height:36px;
     background:rgba(0,10,20,.75);color:#dff;border:1px solid rgba(255,255,255,.15);
@@ -17,6 +27,9 @@ export function initUI({ onSpeedChange, onToggle, onPauseToggle, onDistScaleChan
   #panel button{width:100%;padding:8px;margin-top:12px;background:#134;color:#fff;
     border:1px solid #2a6;border-radius:4px;cursor:pointer;font:13px sans-serif}
   #panel button:hover{background:#1a5}
+  #panel #helpLink{display:block;text-align:center;margin-top:10px;color:#8fd;
+    text-decoration:none;font:13px sans-serif}
+  #panel #helpLink:hover{text-decoration:underline}
   #panel #focusedName{color:#ffd76a;font-weight:600}
   body.hide-labels .city-label{display:none !important}
   body.max-zoomout .city-label:not(.sun-label){display:none !important}
@@ -27,8 +40,8 @@ export function initUI({ onSpeedChange, onToggle, onPauseToggle, onDistScaleChan
   panel.id = 'panel';
   panel.innerHTML = `
     <h3>Объект: <span id="focusedName">Земля</span></h3>
-    <label>Скорость вращения <span id="speedVal">1.0×</span></label>
-    <input type="range" id="speedRange" min="0" max="3" step="0.02" value="1">
+    <label>Скорость вращения <span id="speedVal">0.3×</span></label>
+    <input type="range" id="speedRange" min="0" max="3" step="0.02" value="0.3">
     <h3>Расстояние Земля–Солнце <span id="distVal">3×</span></h3>
     <input type="range" id="distRange" min="1" max="15" step="0.1" value="3">
     <h3>Масштаб <span id="zoomVal">–</span></h3>
@@ -43,6 +56,15 @@ export function initUI({ onSpeedChange, onToggle, onPauseToggle, onDistScaleChan
   `;
   document.body.appendChild(panel);
 
+  const panelFooter = document.createElement('div');
+  panelFooter.id = 'panelFooter';
+  panelFooter.innerHTML = `
+    <div class="footerTitle">Панель управления</div>
+    <div class="footerVersion">Версия v0.1</div>
+    <a id="helpLink" href="#">ℹ️ Справка</a>
+  `;
+  document.body.appendChild(panelFooter);
+
   const toggleBtn = document.createElement('button');
   toggleBtn.id = 'panelToggle';
   toggleBtn.textContent = '›';
@@ -50,6 +72,7 @@ export function initUI({ onSpeedChange, onToggle, onPauseToggle, onDistScaleChan
   toggleBtn.addEventListener('click', () => {
     const collapsed = panel.classList.toggle('collapsed');
     toggleBtn.classList.toggle('collapsed', collapsed);
+    panelFooter.classList.toggle('collapsed', collapsed);
     toggleBtn.textContent = collapsed ? '‹' : '›';
   });
 
@@ -90,6 +113,11 @@ export function initUI({ onSpeedChange, onToggle, onPauseToggle, onDistScaleChan
     paused = !paused;
     btnPause.textContent = paused ? '▶ Запустить' : '⏸ Остановить';
     onPauseToggle(paused);
+  });
+
+  panelFooter.querySelector('#helpLink').addEventListener('click', (e) => {
+    e.preventDefault();
+    onHelpToggle && onHelpToggle();
   });
 
   return {
