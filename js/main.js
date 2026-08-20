@@ -255,7 +255,7 @@ renderer.domElement.addEventListener('mousemove', (e) => {
   }
 });
 
-const VIS = {constellations:true, city:true, capitals:true, plant:true, planets:true, labels:true};
+const VIS = {constellations:true, city:true, capitals:true, plant:false, planets:true, labels:true};
 // скорость вращения Земли по умолчанию на панели — 0.3×
 const EARTH_DEFAULT_SPEED = 0.3;
 const objectSpeed = new Map();

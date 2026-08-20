@@ -50,7 +50,7 @@ export function initUI({ onSpeedChange, onToggle, onPauseToggle, onDistScaleChan
     <label><input type="checkbox" id="chkConst" checked> Созвездия</label>
     <label><input type="checkbox" id="chkCapital" checked> Столицы</label>
     <label><input type="checkbox" id="chkCity" checked> Города</label>
-    <label><input type="checkbox" id="chkPlant" checked> Электростанции</label>
+    <label><input type="checkbox" id="chkPlant"> Электростанции</label>
     <label><input type="checkbox" id="chkPlanets" checked> Планеты</label>
     <label><input type="checkbox" id="chkLabels" checked> Названия объектов</label>
     <button id="btnPause">⏸ Остановить</button>
