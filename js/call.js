@@ -317,7 +317,15 @@ export function initCall(){
     setStatus('Инициализация…');
     try{
       await getLocalStream();
-      peer = new Peer();
+      peer = new Peer({
+        config: {
+          iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+            { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' }
+          ]
+        }
+      });
       peer.on('open', id => {
         console.log('[Call] Peer ID хоста:', id);
         const link = new URL(location.href);
@@ -347,7 +355,15 @@ export function initCall(){
     setStatus('Подключение…');
     try{
       await getLocalStream();
-      peer = new Peer();
+      peer = new Peer({
+        config: {
+          iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+            { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' }
+          ]
+        }
+      });
       peer.on('open', id => {
         console.log('[Call] Peer ID гостя:', id, 'звоню на:', joinId);
         const call = peer.call(joinId, localStream);
