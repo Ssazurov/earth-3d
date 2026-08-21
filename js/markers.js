@@ -1,6 +1,6 @@
 import { scene, camera, renderer } from './scene-core.js';
 import { earth } from './earth.js';
-import { hitMeshes, raycaster, mouseNDC, VIS } from './state.js';
+import { hitMeshes, raycaster, mouseNDC, VIS, SETTINGS } from './state.js';
 import { tooltip, renderTooltipHTML } from './tooltip.js';
 import { getFlagMaterial } from './flags.js';
 import { latLonToVec3 } from './geo.js';
@@ -88,10 +88,12 @@ function kindVisible(m){
   return true;
 }
 
-// Начальная дистанция камеры (scene-core.js: camera.position.set(0,0,3.2)).
-// При зуме на 30% ближе неё названия столиц скрываются, чтобы не перегружать
-// экран подписями — остаётся только флаг (см. issue #16).
-const FLAG_LABEL_HIDE_DIST = 3.2 * 0.7;
+// Начальная дистанция камеры (scene-core.js: camera.position.set(0,0,3.2)) —
+// при ней Земля целиком помещается в экран, и названия столиц ещё НЕ видны
+// (виден только флаг). Дистанция появления названий настраивается в
+// Настройках (SETTINGS.capitalLabelAppearDist, см. settings.js): подпись
+// показывается, только когда камера подлетает БЛИЖЕ этого значения (issue #16).
+const CAPITAL_LABEL_APPEAR_DIST = SETTINGS.capitalLabelAppearDist;
 
 const camDir = new THREE.Vector3();
 const _markerWorld = new THREE.Vector3();
@@ -120,7 +122,7 @@ export function updateMarkers(){
   const halfFovRad = THREE.MathUtils.degToRad(camera.fov/2);
   const earthDiaPx = innerHeight / (dist * Math.tan(halfFovRad));
   const widthLimit = earthDiaPx / 5;
-  const hideCapitalLabel = dist < FLAG_LABEL_HIDE_DIST;
+  const hideCapitalLabel = dist >= CAPITAL_LABEL_APPEAR_DIST;
   citiesFirstVisible = false;
   for(const m of markers){
     const worldDir = m.dir.clone().applyQuaternion(earth.quaternion);

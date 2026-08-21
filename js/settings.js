@@ -5,6 +5,7 @@ const DEFAULTS = {
   sunDist: 3,
   rocketPoolSize: 6,
   ascendMul: 1,
+  capitalLabelAppearDist: 1.4,
   parachuteMul: 1,
   planeSpeedMul: 1,
   seacraftSpeedMul: 1,
@@ -93,6 +94,7 @@ export function initSettings(){
       <label>Скорость вращения по умолчанию <input type="number" id="s_earthSpeed" min="0" max="3" step="0.02"></label>
       <label>Расстояние Земля–Солнце по умолчанию <input type="number" id="s_sunDist" min="1" max="15" step="0.1"></label>
       <label>Кол-во ракет в пуле <input type="number" id="s_rocketPoolSize" min="1" max="20" step="1"></label>
+      <label>Дистанция появления названий столиц (от центра Земли, 1=поверхность, 3.2=старт) <input type="number" id="s_capitalLabelAppearDist" min="1" max="3.2" step="0.1"></label>
 
       <h3>Скорость ракет (множитель)</h3>
       <label>Взлёт <input type="number" id="s_ascendMul" min="0.1" max="10" step="0.1"></label>
@@ -127,7 +129,7 @@ export function initSettings(){
   `;
   document.body.appendChild(overlay);
 
-  const fields = ['earthSpeed','sunDist','rocketPoolSize','ascendMul','parachuteMul',
+  const fields = ['earthSpeed','sunDist','rocketPoolSize','capitalLabelAppearDist','ascendMul','parachuteMul',
     'planeSpeedMul','seacraftSpeedMul','satelliteSpeedMul',
     'visConstellations','visCapitals','visFlags','visCity','visPlant','visPlanets','visLabels','visOrbits',
     'cityText','cityTextOp','cityBg','cityBgOp',
