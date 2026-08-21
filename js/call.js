@@ -201,10 +201,17 @@ export function initCall(){
     v.className = cls;
     v.srcObject = stream;
     videosEl.appendChild(v);
+    
+    v.onloadedmetadata = () => {
+      console.log('[Call] Метаданные загружены:', cls, v.videoWidth, 'x', v.videoHeight);
+      v.play().catch(e => console.warn('[Call] Ошибка play после loadedmetadata:', e));
+    };
+    
     // Принудительный запуск для обхода autoplay policy
     setTimeout(() => {
       v.play().catch(e => console.warn('[Call] Ошибка autoplay:', e));
     }, 100);
+    
     updateVideoLayout();
     return v;
   }
