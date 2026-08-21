@@ -197,19 +197,24 @@ export function initCall(){
     const v = document.createElement('video');
     v.autoplay = true;
     v.playsInline = true;
-    if(cls === 'local') v.muted = true;
+    const isLocal = cls === 'local';
+    v.muted = true; // Временно mute для обхода autoplay policy
     v.className = cls;
     v.srcObject = stream;
     videosEl.appendChild(v);
     
     v.onloadedmetadata = () => {
       console.log('[Call] Метаданные загружены:', cls, v.videoWidth, 'x', v.videoHeight);
-      v.play().catch(e => console.warn('[Call] Ошибка play после loadedmetadata:', e));
+      v.play().then(() => {
+        if(!isLocal) v.muted = false; // Unmute remote после успешного play
+      }).catch(e => console.warn('[Call] Ошибка play после loadedmetadata:', e));
     };
     
     // Принудительный запуск для обхода autoplay policy
     setTimeout(() => {
-      v.play().catch(e => console.warn('[Call] Ошибка autoplay:', e));
+      v.play().then(() => {
+        if(!isLocal) v.muted = false; // Unmute remote после успешного play
+      }).catch(e => console.warn('[Call] Ошибка autoplay:', e));
     }, 100);
     
     updateVideoLayout();

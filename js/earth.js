@@ -6,11 +6,11 @@ import { scene, renderer } from './scene-core.js';
 // --- текстуры Земли ---
 export const loader = new THREE.TextureLoader();
 export const TEX = 'https://threejs.org/examples/textures/planets/';
-export const TEX4K = 'https://raw.githubusercontent.com/turban/webgl-earth/master/images/';
-const dayMap   = loader.load(TEX4K + '2_no_clouds_4k.jpg');
-const bumpMap  = loader.load(TEX4K + 'elev_bump_4k.jpg');
-const specMap  = loader.load(TEX4K + 'water_4k.png');
-const cloudMap = loader.load(TEX4K + 'fair_clouds_4k.png');
+// Используем надежный CDN от Three.js
+const dayMap   = loader.load(TEX + 'earth_atmos_2048.jpg');
+const bumpMap  = loader.load(TEX + 'earth_normal_2048.jpg');
+const specMap  = loader.load(TEX + 'earth_specular_2048.jpg');
+const cloudMap = loader.load(TEX + 'earth_clouds_1024.png');
 [dayMap, bumpMap, specMap, cloudMap].forEach(t => { t.anisotropy = renderer.capabilities.getMaxAnisotropy(); });
 
 const earthGeo = new THREE.SphereGeometry(1, 256, 256);
