@@ -203,18 +203,22 @@ export function initCall(){
     v.srcObject = stream;
     videosEl.appendChild(v);
     
+    // Unmute remote только когда видео действительно начало воспроизводиться
+    if(!isLocal){
+      v.onplaying = () => {
+        v.muted = false;
+        console.log('[Call] Remote видео unmuted после onplaying');
+      };
+    }
+    
     v.onloadedmetadata = () => {
       console.log('[Call] Метаданные загружены:', cls, v.videoWidth, 'x', v.videoHeight);
-      v.play().then(() => {
-        if(!isLocal) v.muted = false; // Unmute remote после успешного play
-      }).catch(e => console.warn('[Call] Ошибка play после loadedmetadata:', e));
+      v.play().catch(e => console.warn('[Call] Ошибка play после loadedmetadata:', e));
     };
     
     // Принудительный запуск для обхода autoplay policy
     setTimeout(() => {
-      v.play().then(() => {
-        if(!isLocal) v.muted = false; // Unmute remote после успешного play
-      }).catch(e => console.warn('[Call] Ошибка autoplay:', e));
+      v.play().catch(e => console.warn('[Call] Ошибка autoplay:', e));
     }, 100);
     
     updateVideoLayout();
@@ -277,7 +281,8 @@ export function initCall(){
       }
       remoteVideoAdded = true;
       setStatus(`Собеседник подключён (${videoTracks.length ? 'видео' : ''}${videoTracks.length && audioTracks.length ? '+' : ''}${audioTracks.length ? 'аудио' : ''})`);
-      addVideo(remoteStream, 'remote');
+      const remoteVideo = addVideo(remoteStream, 'remote');
+      console.log('[Call] Remote video element добавлен:', remoteVideo, 'srcObject:', remoteVideo.srcObject?.id, 'paused:', remoteVideo.paused, 'muted:', remoteVideo.muted);
     });
     call.on('close', () => {
       if(closing || activeCall !== call) return;
