@@ -5,6 +5,7 @@ import { tooltip, renderTooltipHTML } from './tooltip.js';
 import { getFlagMaterial } from './flags.js';
 import { latLonToVec3 } from './geo.js';
 import { CITIES, LANDMARKS, PLANTS, RU_CITIES, CITIES2, COSMODROMES } from './data.js';
+import { moon } from './moon.js';
 
 // Маркеры городов/достопримечательностей/электростанций/космодромов на Земле:
 // точки+подписи (addMarker), тултип по наведению, видимость по уровням (tierOf/kindVisible),
@@ -43,7 +44,7 @@ export function addMarker(name, lat, lon, kind, country, flag, isCapital){
   let flagSpr = null;
   if(isCapital && flag){
     flagSpr = new THREE.Sprite(getFlagMaterial(flag));
-    flagSpr.scale.set(0.045, 0.045, 1);
+    flagSpr.scale.set(0.0315, 0.0315, 1);
     flagSpr.position.set(0, 0.028, 0);
     dot.add(flagSpr);
   }
@@ -93,6 +94,25 @@ function kindVisible(m){
 const FLAG_LABEL_HIDE_DIST = 3.2 * 0.7;
 
 const camDir = new THREE.Vector3();
+const _markerWorld = new THREE.Vector3();
+const _toPoint = new THREE.Vector3();
+const _toMoon = new THREE.Vector3();
+// Подписи городов/столиц рисуются CSS2DRenderer поверх WebGL-сцены и не
+// учитывают глубину сама по себе (issue #19). Проверяем, не закрыта ли
+// точка маркера Луной по лучу камера->маркер (сфера-луч).
+function occludedByMoon(pointWorld){
+  if(!moon.visible) return false;
+  const moonR = 0.27;
+  _toPoint.copy(pointWorld).sub(camera.position);
+  const distToPoint = _toPoint.length();
+  if(distToPoint < 1e-6) return false;
+  _toPoint.divideScalar(distToPoint);
+  _toMoon.copy(moon.position).sub(camera.position);
+  const tca = _toMoon.dot(_toPoint);
+  if(tca < 0 || tca > distToPoint) return false;
+  const d2 = _toMoon.lengthSq() - tca*tca;
+  return d2 < moonR*moonR;
+}
 export function updateMarkers(){
   camDir.copy(camera.position).normalize();
   const dist = camera.position.length();
@@ -107,10 +127,12 @@ export function updateMarkers(){
     const rawFacing = worldDir.dot(camDir) > 0.1;
     const facing = rawFacing && kindVisible(m);
     const fitsWidth = m.label.element.offsetWidth < widthLimit;
+    const moonOccluded = occludedByMoon(m.dot.getWorldPosition(_markerWorld));
     let vis = facing && m.tier <= maxTier && fitsWidth;
     if(m.isCapital && hideCapitalLabel) vis = false;
+    if(vis && moonOccluded) vis = false;
     m.label.element.style.opacity = vis ? '1' : '0';
-    const showFlag = m.isCapital && rawFacing && VIS.flags;
+    const showFlag = m.isCapital && rawFacing && VIS.flags && !moonOccluded;
     m.dot.visible = facing || showFlag;
     if(m.flagSpr) m.flagSpr.visible = showFlag;
     if(m.tier === 0 && vis) citiesFirstVisible = true;

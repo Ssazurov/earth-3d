@@ -19,7 +19,7 @@ export function getFlagMaterial(emoji){
   const c = document.createElement('canvas'); c.width = 64; c.height = 64;
   const ctx = c.getContext('2d');
   const tex = new THREE.CanvasTexture(c);
-  const mat = new THREE.SpriteMaterial({map:tex, transparent:true, depthTest:false});
+  const mat = new THREE.SpriteMaterial({map:tex, transparent:true, opacity:0.75, depthTest:false});
   flagMatCache[emoji] = mat;
   const iso = emojiToISO(emoji);
   if(iso){
