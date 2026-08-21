@@ -35,8 +35,23 @@ function makePlaneMesh(){
   const navR = new THREE.Mesh(new THREE.SphereGeometry(0.0009,6,6), new THREE.MeshBasicMaterial({color:0x22ff44}));
   navR.position.set(0.013,0,0);
   g.add(navL, navR);
-  const trailGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,-0.012), new THREE.Vector3(0,0,-0.05)]);
-  const trail = new THREE.Line(trailGeo, new THREE.LineBasicMaterial({color:0xffffff, transparent:true, opacity:0.35}));
+  // след самолёта: несколько сегментов с затуханием прозрачности и лёгким разбросом — имитация рассеивающегося инверсионного следа
+  const trail = new THREE.Group();
+  const TRAIL_START = 0.012, TRAIL_LEN = 0.114; // втрое длиннее прежнего (было 0.038)
+  const TRAIL_SEGMENTS = 7;
+  for(let i = 0; i < TRAIL_SEGMENTS; i++){
+    const z0 = -(TRAIL_START + TRAIL_LEN * (i / TRAIL_SEGMENTS));
+    const z1 = -(TRAIL_START + TRAIL_LEN * ((i + 1) / TRAIL_SEGMENTS));
+    const spread = 0.0006 * i; // след слегка расширяется с расстоянием
+    const segGeo = new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(spread * 0.4, spread * 0.3, z0),
+      new THREE.Vector3(-spread * 0.4, -spread * 0.3, z1)
+    ]);
+    const t = i / (TRAIL_SEGMENTS - 1);
+    const opacity = 0.4 * Math.pow(1 - t, 1.6);
+    const segMat = new THREE.LineBasicMaterial({color:0xffffff, transparent:true, opacity});
+    trail.add(new THREE.Line(segGeo, segMat));
+  }
   g.add(trail);
   g.userData = {navL, navR, trail};
   return g;

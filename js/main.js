@@ -21,6 +21,10 @@ import { initUI } from './ui.js';
 import { initHelp } from './help.js';
 import { initSettings } from './settings.js';
 import { initDescription } from './description.js';
+import { initCall } from './call.js';
+
+// --- звонки по ссылке (ADR 0006, #25) — независимый модуль, своя UI/DOM ---
+initCall();
 
 // --- старт: Москва по центру ---
 {
