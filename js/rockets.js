@@ -77,11 +77,14 @@ function makeRocket(){
   g.add(fireball);
 
   const capsule = new THREE.Mesh(new THREE.ConeGeometry(0.003, 0.006, 8), bodyMat);
+  capsule.rotation.x = Math.PI/2; // align cone axis with descent direction (was sideways)
   capsule.visible = false;
   g.add(capsule);
+  const WIND_TILT = THREE.MathUtils.degToRad(17); // chute drifts ahead of capsule
   const chute = new THREE.Mesh(new THREE.SphereGeometry(0.014, 12, 8, 0, Math.PI*2, 0, Math.PI*0.42), new THREE.MeshBasicMaterial({map:getParachuteTexture(), side:THREE.DoubleSide}));
-  chute.position.z = 0.02;
+  chute.position.set(0.02*Math.sin(WIND_TILT), 0, 0.02*Math.cos(WIND_TILT));
   chute.rotation.x = Math.PI/2;
+  chute.rotation.y = -WIND_TILT;
   chute.visible = false;
   g.add(chute);
 
