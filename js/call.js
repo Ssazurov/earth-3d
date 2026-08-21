@@ -216,9 +216,12 @@ export function initCall(){
       v.play().catch(e => console.warn('[Call] Ошибка play после loadedmetadata:', e));
     };
     
-    // Принудительный запуск для обхода autoplay policy
+    // Немедленный запуск для remote (loadedmetadata может не сработать)
+    v.play().catch(e => console.warn('[Call] Ошибка немедленного play:', e));
+    
+    // Дублирующий запуск для надёжности
     setTimeout(() => {
-      v.play().catch(e => console.warn('[Call] Ошибка autoplay:', e));
+      if(v.paused) v.play().catch(e => console.warn('[Call] Ошибка отложенного play:', e));
     }, 100);
     
     updateVideoLayout();
