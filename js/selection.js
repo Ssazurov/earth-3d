@@ -12,6 +12,8 @@ import { hitMeshes, raycaster, mouseNDC, globalSpeed, distScale, setAutoRotate }
 import { setZoomMax } from './zoom.js';
 import { PLANETS, COSMODROMES } from './data.js';
 
+const MIN_HIT_RADIUS_PX = 14;
+
 export const selectable = [
   {mesh: earth, name:'Земля', size:1, isEarth:true, sunDist: SUN_BASE_DIST},
   {mesh: moon,  name:'Луна',  size:0.27, sunDist: SUN_BASE_DIST},
@@ -20,6 +22,32 @@ export const selectable = [
   ...solarBodies.map((b,i) => ({mesh:b.mesh, name:PLANETS[i].name, size:PLANETS[i].size, sunDist:PLANETS[i].dist}))
 ];
 const MAX_PLANET_DIST = Math.max(...PLANETS.map(p => p.dist));
+
+const earthHit = new THREE.Mesh(
+  new THREE.SphereGeometry(1, 8, 8),
+  new THREE.MeshBasicMaterial({visible:false})
+);
+earth.add(earthHit);
+
+function getHitMesh(target){
+  if(target.isEarth) return earthHit;
+  return target.mesh.children.find(child => child.isMesh && child.material.visible === false);
+}
+
+const selectableHits = selectable.map(target => ({target, mesh:getHitMesh(target)}));
+
+function updateHitMeshes(){
+  const viewportHeight = renderer.domElement.clientHeight;
+  if(!viewportHeight) return;
+  const pixelsToWorld = 2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) / viewportHeight;
+  selectableHits.forEach(({target, mesh}) => {
+    if(!mesh) return;
+    const distance = camera.position.distanceTo(target.mesh.getWorldPosition(new THREE.Vector3()));
+    const minimumRadius = distance * pixelsToWorld * MIN_HIT_RADIUS_PX;
+    const baseRadius = mesh.geometry.boundingSphere.radius;
+    mesh.scale.setScalar(Math.max(1, minimumRadius / baseRadius));
+  });
+}
 
 export function updateZoomMax(target){
   const targetSunDist = (target && target.sunDist != null) ? target.sunDist : SUN_BASE_DIST;
@@ -70,8 +98,9 @@ export function init(ui){
       if(pad && idle) launchRocket(idle, pad);
       return;
     }
-    const hits = raycaster.intersectObjects(selectable.map(s => s.mesh), true);
-    let target = hits.length ? selectable.find(s => s.mesh === hits[0].object || s.mesh === hits[0].object.parent) : null;
+    updateHitMeshes();
+    const hits = raycaster.intersectObjects(selectableHits.map(hit => hit.mesh).filter(Boolean), false);
+    const target = hits.length ? selectableHits.find(hit => hit.mesh === hits[0].object).target : null;
     if(target){
       const wasIss = target.mesh === issMesh;
       selectTarget(target, ui);
