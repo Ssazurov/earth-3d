@@ -75,6 +75,7 @@ export function initUI({ onSpeedChange, onToggle, onPauseToggle, onDistScaleChan
     <label><input type="checkbox" id="chkPlant" ${S.visPlant?'checked':''}> Электростанции</label>
     <label><input type="checkbox" id="chkPlanets" ${S.visPlanets!==false?'checked':''}> Планеты</label>
     <label><input type="checkbox" id="chkLabels" ${S.visLabels!==false?'checked':''}> Названия объектов</label>
+    <label><input type="checkbox" id="chkOrbits" ${S.visOrbits!==false?'checked':''}> Траектории</label>
     <button id="btnPause">⏸ Остановить</button>
   `;
   document.body.appendChild(panel);
@@ -139,7 +140,7 @@ export function initUI({ onSpeedChange, onToggle, onPauseToggle, onDistScaleChan
     onZoomChange(v);
   });
 
-  const toggleMap = {chkConst:'constellations', chkCapital:'capitals', chkFlags:'flags', chkCity:'city', chkPlant:'plant', chkPlanets:'planets', chkLabels:'labels'};
+  const toggleMap = {chkConst:'constellations', chkCapital:'capitals', chkFlags:'flags', chkCity:'city', chkPlant:'plant', chkPlanets:'planets', chkLabels:'labels', chkOrbits:'orbits'};
   Object.entries(toggleMap).forEach(([id,key]) => {
     panel.querySelector('#'+id).addEventListener('change', e => onToggle(key, e.target.checked));
   });

@@ -16,6 +16,7 @@ const DEFAULTS = {
   visPlant: false,
   visPlanets: true,
   visLabels: true,
+  visOrbits: true,
   cityText: '#ffeded',
   cityTextOp: 100,
   cityBg: '#001428',
@@ -110,6 +111,7 @@ export function initSettings(){
       <label class="chk"><input type="checkbox" id="s_visPlant"> Электростанции</label>
       <label class="chk"><input type="checkbox" id="s_visPlanets"> Планеты</label>
       <label class="chk"><input type="checkbox" id="s_visLabels"> Названия объектов</label>
+      <label class="chk"><input type="checkbox" id="s_visOrbits"> Траектории орбит</label>
 
       <h3>Цвета подписей</h3>
       <label>Текст городов <span class="colwrap"><input type="color" id="s_cityText"><input type="range" min="0" max="100" step="1" id="s_cityTextOp"></span></label>
@@ -127,7 +129,7 @@ export function initSettings(){
 
   const fields = ['earthSpeed','sunDist','rocketPoolSize','ascendMul','parachuteMul',
     'planeSpeedMul','seacraftSpeedMul','satelliteSpeedMul',
-    'visConstellations','visCapitals','visFlags','visCity','visPlant','visPlanets','visLabels',
+    'visConstellations','visCapitals','visFlags','visCity','visPlant','visPlanets','visLabels','visOrbits',
     'cityText','cityTextOp','cityBg','cityBgOp',
     'capitalText','capitalTextOp','capitalBg','capitalBgOp',
     'cosmodromeText','cosmodromeTextOp','cosmodromeBg','cosmodromeBgOp'];

@@ -14,7 +14,7 @@ export const hitMeshes = [];
 export const VIS = {
   constellations: SETTINGS.visConstellations, city: SETTINGS.visCity,
   capitals: SETTINGS.visCapitals, flags: SETTINGS.visFlags, plant: SETTINGS.visPlant,
-  planets: SETTINGS.visPlanets, labels: SETTINGS.visLabels
+  planets: SETTINGS.visPlanets, labels: SETTINGS.visLabels, orbits: SETTINGS.visOrbits
 };
 
 // --- скорость симуляции (ползунок в панели, влияет на всё: earth/планеты/МКС/транспорт) ---

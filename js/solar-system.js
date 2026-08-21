@@ -3,7 +3,7 @@
 
 import { scene, sun } from './scene-core.js';
 import { nightMat } from './earth.js';
-import { hitMeshes, globalSpeed, distScale } from './state.js';
+import { hitMeshes, globalSpeed, distScale, VIS } from './state.js';
 import { PLANETS } from './data.js';
 
 export const sunMesh = new THREE.Mesh(new THREE.SphereGeometry(3.5, 32, 32), new THREE.MeshBasicMaterial({color:0xffdd77}));
@@ -73,6 +73,22 @@ function planetTexture(p){
     : makeBandedTexture(p.colors.banded, 512);
 }
 
+// единичная окружность орбиты; реальный радиус задаётся через scale в updatePlanets()
+function makeOrbitLine(){
+  const segments = 128;
+  const pts = [];
+  for(let i=0;i<=segments;i++){
+    const a = (i/segments)*Math.PI*2;
+    pts.push(new THREE.Vector3(Math.cos(a), 0, Math.sin(a)));
+  }
+  const geo = new THREE.BufferGeometry().setFromPoints(pts);
+  const mat = new THREE.LineBasicMaterial({color:0x4a7aa8, transparent:true, opacity:0.35});
+  const line = new THREE.Line(geo, mat);
+  line.visible = VIS.orbits;
+  scene.add(line);
+  return line;
+}
+
 export const solarBodies = [];
 PLANETS.forEach(p => {
   const mesh = new THREE.Mesh(new THREE.SphereGeometry(p.size, 48, 48), new THREE.MeshPhongMaterial({map:planetTexture(p), shininess:5}));
@@ -102,7 +118,8 @@ PLANETS.forEach(p => {
   };
   mesh.add(hit);
   hitMeshes.push(hit);
-  solarBodies.push({mesh, dist:p.dist, speed:p.speed, phase:Math.random()*Math.PI*2, size:p.size, spin:p.spin});
+  const orbitLine = makeOrbitLine();
+  solarBodies.push({mesh, dist:p.dist, speed:p.speed, phase:Math.random()*Math.PI*2, size:p.size, spin:p.spin, orbitLine});
 });
 
 export function updatePlanets(t){
@@ -116,5 +133,8 @@ export function updatePlanets(t){
       sunMesh.position.z + Math.sin(a)*d
     );
     b.mesh.rotation.y = t*b.spin*globalSpeed;
+    b.orbitLine.position.copy(sunMesh.position);
+    b.orbitLine.scale.set(d, 1, d);
+    b.orbitLine.visible = VIS.orbits;
   });
 }

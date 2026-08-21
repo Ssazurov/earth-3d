@@ -2,7 +2,7 @@
 
 import { scene } from './scene-core.js';
 import { loader, TEX } from './earth.js';
-import { hitMeshes, speedMul } from './state.js';
+import { hitMeshes, speedMul, VIS } from './state.js';
 
 const moonMap = loader.load(TEX + 'moon_1024.jpg');
 export const moon = new THREE.Mesh(new THREE.SphereGeometry(0.27, 32, 32), new THREE.MeshStandardMaterial({map: moonMap, bumpMap: moonMap, bumpScale: 0.01, roughness:1, metalness:0}));
@@ -23,8 +23,30 @@ scene.add(moon);
   hitMeshes.push(moonHit);
 }
 const moonOrbit = {dist:2.6, speed:0.18, incl:0.09, phase:Math.random()*Math.PI*2};
+
+// орбита Луны вокруг Земли не зависит от distScale — рисуем один раз статично
+const moonOrbitLine = (() => {
+  const segments = 96;
+  const pts = [];
+  for(let i=0;i<=segments;i++){
+    const a = (i/segments)*Math.PI*2;
+    pts.push(new THREE.Vector3(
+      Math.cos(a)*moonOrbit.dist,
+      Math.sin(a)*moonOrbit.dist*Math.sin(moonOrbit.incl),
+      Math.sin(a)*moonOrbit.dist*Math.cos(moonOrbit.incl)
+    ));
+  }
+  const geo = new THREE.BufferGeometry().setFromPoints(pts);
+  const mat = new THREE.LineBasicMaterial({color:0xaaaaaa, transparent:true, opacity:0.3});
+  const line = new THREE.Line(geo, mat);
+  line.visible = VIS.orbits;
+  scene.add(line);
+  return line;
+})();
+
 export function updateMoon(t){
   const mul = speedMul(moon);
   const a = moonOrbit.phase + t*moonOrbit.speed*mul;
   moon.position.set(Math.cos(a)*moonOrbit.dist, Math.sin(a)*moonOrbit.dist*Math.sin(moonOrbit.incl), Math.sin(a)*moonOrbit.dist*Math.cos(moonOrbit.incl));
+  moonOrbitLine.visible = VIS.orbits;
 }
