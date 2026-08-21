@@ -32,6 +32,11 @@ export function updateZoomMax(target){
   const zoomMax = Math.max(span * margin / Math.tan(limitHalfFov), controls.minDistance * 1.5);
   setZoomMax(zoomMax);
   controls.maxDistance = zoomMax;
+  const curDist = camera.position.distanceTo(controls.target);
+  if(curDist > zoomMax){
+    const dir = camera.position.clone().sub(controls.target).normalize();
+    camera.position.copy(controls.target).add(dir.multiplyScalar(zoomMax));
+  }
 }
 
 export let focused = selectable[0];
