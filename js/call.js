@@ -201,6 +201,7 @@ export function initCall(){
     v.className = cls;
     v.srcObject = stream;
     videosEl.appendChild(v);
+    v.play().catch(e => console.warn('[Call] Ошибка autoplay:', e));
     updateVideoLayout();
     return v;
   }
