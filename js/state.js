@@ -13,7 +13,7 @@ export const hitMeshes = [];
 // --- видимость слоёв (панель справа, initUI onToggle) ---
 export const VIS = {
   constellations: SETTINGS.visConstellations, city: SETTINGS.visCity,
-  capitals: SETTINGS.visCapitals, plant: SETTINGS.visPlant,
+  capitals: SETTINGS.visCapitals, flags: SETTINGS.visFlags, plant: SETTINGS.visPlant,
   planets: SETTINGS.visPlanets, labels: SETTINGS.visLabels
 };
 

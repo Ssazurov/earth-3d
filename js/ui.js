@@ -70,6 +70,7 @@ export function initUI({ onSpeedChange, onToggle, onPauseToggle, onDistScaleChan
     <h3>Показ</h3>
     <label><input type="checkbox" id="chkConst" ${S.visConstellations!==false?'checked':''}> Созвездия</label>
     <label><input type="checkbox" id="chkCapital" ${S.visCapitals!==false?'checked':''}> Столицы</label>
+    <label><input type="checkbox" id="chkFlags" ${S.visFlags!==false?'checked':''}> Флаги</label>
     <label><input type="checkbox" id="chkCity" ${S.visCity!==false?'checked':''}> Города</label>
     <label><input type="checkbox" id="chkPlant" ${S.visPlant?'checked':''}> Электростанции</label>
     <label><input type="checkbox" id="chkPlanets" ${S.visPlanets!==false?'checked':''}> Планеты</label>
@@ -138,7 +139,7 @@ export function initUI({ onSpeedChange, onToggle, onPauseToggle, onDistScaleChan
     onZoomChange(v);
   });
 
-  const toggleMap = {chkConst:'constellations', chkCapital:'capitals', chkCity:'city', chkPlant:'plant', chkPlanets:'planets', chkLabels:'labels'};
+  const toggleMap = {chkConst:'constellations', chkCapital:'capitals', chkFlags:'flags', chkCity:'city', chkPlant:'plant', chkPlanets:'planets', chkLabels:'labels'};
   Object.entries(toggleMap).forEach(([id,key]) => {
     panel.querySelector('#'+id).addEventListener('change', e => onToggle(key, e.target.checked));
   });

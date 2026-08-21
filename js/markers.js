@@ -27,7 +27,7 @@ export function addMarker(name, lat, lon, kind, country, flag, isCapital){
   const isCityDot = kind==='city' || kind==='ru' || kind==='city2';
   const dotRadius = isCityDot ? 0.007*0.35 : 0.007;
   const dotMat = isCityDot
-    ? new THREE.MeshBasicMaterial({color: DOT_COLORS[kind], transparent:true, opacity:0.25})
+    ? new THREE.MeshBasicMaterial({color: DOT_COLORS[kind], transparent:true, opacity:0.85})
     : new THREE.MeshBasicMaterial({color: DOT_COLORS[kind]});
   const dot = new THREE.Mesh(new THREE.SphereGeometry(dotRadius, 12, 12), dotMat);
   dot.position.copy(pos);
@@ -40,8 +40,9 @@ export function addMarker(name, lat, lon, kind, country, flag, isCapital){
   label.position.set(0,0,0);
   dot.add(label);
 
+  let flagSpr = null;
   if(isCapital && flag){
-    const flagSpr = new THREE.Sprite(getFlagMaterial(flag));
+    flagSpr = new THREE.Sprite(getFlagMaterial(flag));
     flagSpr.scale.set(0.045, 0.045, 1);
     flagSpr.position.set(0, 0.028, 0);
     dot.add(flagSpr);
@@ -52,7 +53,7 @@ export function addMarker(name, lat, lon, kind, country, flag, isCapital){
   dot.add(hit);
   hitMeshes.push(hit);
 
-  markers.push({dot, label, dir, tier, kind, isCapital: !!isCapital});
+  markers.push({dot, label, flagSpr, dir, tier, kind, isCapital: !!isCapital});
 }
 CITIES.forEach(([n,lat,lon,country,flag,cap]) => addMarker(n,lat,lon,'city',country,flag,cap));
 LANDMARKS.forEach(([n,lat,lon,country,flag]) => addMarker(n,lat,lon,'landmark',country,flag));
@@ -86,6 +87,11 @@ function kindVisible(m){
   return true;
 }
 
+// Начальная дистанция камеры (scene-core.js: camera.position.set(0,0,3.2)).
+// При зуме на 30% ближе неё названия столиц скрываются, чтобы не перегружать
+// экран подписями — остаётся только флаг (см. issue #16).
+const FLAG_LABEL_HIDE_DIST = 3.2 * 0.7;
+
 const camDir = new THREE.Vector3();
 export function updateMarkers(){
   camDir.copy(camera.position).normalize();
@@ -94,14 +100,19 @@ export function updateMarkers(){
   const halfFovRad = THREE.MathUtils.degToRad(camera.fov/2);
   const earthDiaPx = innerHeight / (dist * Math.tan(halfFovRad));
   const widthLimit = earthDiaPx / 5;
+  const hideCapitalLabel = dist < FLAG_LABEL_HIDE_DIST;
   citiesFirstVisible = false;
   for(const m of markers){
     const worldDir = m.dir.clone().applyQuaternion(earth.quaternion);
-    const facing = worldDir.dot(camDir) > 0.1 && kindVisible(m);
+    const rawFacing = worldDir.dot(camDir) > 0.1;
+    const facing = rawFacing && kindVisible(m);
     const fitsWidth = m.label.element.offsetWidth < widthLimit;
-    const vis = facing && m.tier <= maxTier && fitsWidth;
+    let vis = facing && m.tier <= maxTier && fitsWidth;
+    if(m.isCapital && hideCapitalLabel) vis = false;
     m.label.element.style.opacity = vis ? '1' : '0';
-    m.dot.visible = facing;
+    const showFlag = m.isCapital && rawFacing && VIS.flags;
+    m.dot.visible = facing || showFlag;
+    if(m.flagSpr) m.flagSpr.visible = showFlag;
     if(m.tier === 0 && vis) citiesFirstVisible = true;
   }
   if(issLabel) issLabel.element.style.opacity = citiesFirstVisible ? '1' : '0';
