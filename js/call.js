@@ -201,7 +201,10 @@ export function initCall(){
     v.className = cls;
     v.srcObject = stream;
     videosEl.appendChild(v);
-    v.play().catch(e => console.warn('[Call] Ошибка autoplay:', e));
+    // Принудительный запуск для обхода autoplay policy
+    setTimeout(() => {
+      v.play().catch(e => console.warn('[Call] Ошибка autoplay:', e));
+    }, 100);
     updateVideoLayout();
     return v;
   }
@@ -250,7 +253,9 @@ export function initCall(){
       };
     }
     
+    let remoteVideoAdded = false;
     call.on('stream', remoteStream => {
+      if(remoteVideoAdded) return;
       console.log('[Call] Получен удалённый поток:', remoteStream.id, 'треки:', remoteStream.getTracks().map(t => `${t.kind}:${t.enabled}`));
       const videoTracks = remoteStream.getVideoTracks();
       const audioTracks = remoteStream.getAudioTracks();
@@ -258,6 +263,7 @@ export function initCall(){
         setStatus('⚠️ Получен пустой медиа-поток от собеседника');
         return;
       }
+      remoteVideoAdded = true;
       setStatus(`Собеседник подключён (${videoTracks.length ? 'видео' : ''}${videoTracks.length && audioTracks.length ? '+' : ''}${audioTracks.length ? 'аудио' : ''})`);
       addVideo(remoteStream, 'remote');
     });
