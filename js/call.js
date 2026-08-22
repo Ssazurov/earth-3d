@@ -207,8 +207,18 @@ export function initCall(){
   function startStatsLoop(pc){
     stopStatsLoop();
     let candidatesGathered = 0;
+    const candidateTypes = new Set();
     pc.addEventListener('icecandidate', e => {
-      if(e.candidate) candidatesGathered++;
+      if(e.candidate){
+        candidatesGathered++;
+        candidateTypes.add(e.candidate.type);
+        console.log('[Call] local ICE candidate:', e.candidate.type, e.candidate.protocol, e.candidate.address || e.candidate.candidate);
+      } else {
+        console.log('[Call] ICE gathering завершён (null candidate)');
+      }
+    });
+    pc.addEventListener('icecandidateerror', e => {
+      console.warn('[Call] icecandidateerror:', e.errorCode, e.errorText, e.url);
     });
     statsTimer = setInterval(async () => {
       if(pc.connectionState === 'closed') { stopStatsLoop(); return; }
@@ -226,7 +236,7 @@ export function initCall(){
         if(r.type === 'inbound-rtp' && r.kind === 'audio') audio = r;
       });
       console.log(
-        `[Call][stats] ICE:${pc.iceConnectionState} conn:${pc.connectionState} gather:${pc.iceGatheringState} candidates:${candidatesGathered} | pair: ${pairType} | video bytes: ${video?.bytesReceived ?? '—'} frames: ${video?.framesDecoded ?? '—'} | audio bytes: ${audio?.bytesReceived ?? '—'}`
+        `[Call][stats] ICE:${pc.iceConnectionState} conn:${pc.connectionState} gather:${pc.iceGatheringState} candidates:${candidatesGathered}[${[...candidateTypes].join(',')}] | pair: ${pairType} | video bytes: ${video?.bytesReceived ?? '—'} frames: ${video?.framesDecoded ?? '—'} | audio bytes: ${audio?.bytesReceived ?? '—'}`
       );
     }, 3000);
   }
