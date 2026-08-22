@@ -182,6 +182,10 @@ export function initCall(){
   let reconnectAttempt = 0;
   let closing = false;
 
+  function genPeerId(){
+    return 'p-' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+  }
+
   function setStatus(text){ statusEl.textContent = text; }
   function mediaErrorMessage(error){
     if(error?.name === 'NotAllowedError' || error?.name === 'PermissionDeniedError') return 'Доступ к камере/микрофону запрещён. Разрешите доступ в настройках браузера.';
@@ -330,7 +334,7 @@ export function initCall(){
     setStatus('Инициализация…');
     try{
       await getLocalStream();
-      peer = new Peer({
+      peer = new Peer(genPeerId(), {
         config: {
           iceServers: [
             { urls: 'stun:stun.l.google.com:19302' },
@@ -368,7 +372,7 @@ export function initCall(){
     setStatus('Подключение…');
     try{
       await getLocalStream();
-      peer = new Peer({
+      peer = new Peer(genPeerId(), {
         config: {
           iceServers: [
             { urls: 'stun:stun.l.google.com:19302' },
