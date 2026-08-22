@@ -188,3 +188,13 @@
 - Дальше: после деплоя на Render получить домен, обновить `js/call.js`
   (new Peer host/port вместо облака), запушить, проверить с двух телефонов.
 - ⚠️ Не проверено — сервер ещё не задеплоен.
+
+## Подключение call.js к своему PeerServer
+- Задеплоен Render-сервис `earth-3d-peer-server`
+  (https://earth-3d-peer-server.onrender.com), root `peer-server`,
+  build `npm install`, start `npm start`, free plan.
+- `js/call.js`: добавлены константы PEER_HOST/PEER_PORT/PEER_PATH,
+  оба `new Peer()` (host/guest) теперь используют этот сервер вместо
+  облака 0.peerjs.com.
+- ⚠️ Не проверено вживую (Render free план — первый запрос может
+  идти дольше из-за cold start после простоя).

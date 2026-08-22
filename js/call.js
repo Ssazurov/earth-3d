@@ -5,6 +5,9 @@
 // Зависимость: глобальный window.Peer (PeerJS UMD, подключается в index.html).
 
 const PARAM = 'call';
+const PEER_HOST = 'earth-3d-peer-server.onrender.com';
+const PEER_PORT = 443;
+const PEER_PATH = '/';
 const VIDEO_SIZE = { width: 130, height: 98 };
 const VIDEO_GAP = 6;
 const RECONNECT_DELAYS = [1000, 3000, 5000, 10000];
@@ -335,6 +338,10 @@ export function initCall(){
     try{
       await getLocalStream();
       peer = new Peer(genPeerId(), {
+        host: PEER_HOST,
+        port: PEER_PORT,
+        path: PEER_PATH,
+        secure: true,
         config: {
           iceServers: [
             { urls: 'stun:stun.l.google.com:19302' },
@@ -373,6 +380,10 @@ export function initCall(){
     try{
       await getLocalStream();
       peer = new Peer(genPeerId(), {
+        host: PEER_HOST,
+        port: PEER_PORT,
+        path: PEER_PATH,
+        secure: true,
         config: {
           iceServers: [
             { urls: 'stun:stun.l.google.com:19302' },
