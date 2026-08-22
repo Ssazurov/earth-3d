@@ -200,6 +200,33 @@ export function initCall(){
     if(reconnectTimer){ clearTimeout(reconnectTimer); reconnectTimer = null; }
   }
 
+  let statsTimer = null;
+  function stopStatsLoop(){
+    if(statsTimer){ clearInterval(statsTimer); statsTimer = null; }
+  }
+  function startStatsLoop(pc){
+    stopStatsLoop();
+    statsTimer = setInterval(async () => {
+      if(pc.connectionState === 'closed') { stopStatsLoop(); return; }
+      const stats = await pc.getStats().catch(() => null);
+      if(!stats) return;
+      let pairType = '—';
+      let video = null, audio = null;
+      stats.forEach(r => {
+        if(r.type === 'candidate-pair' && r.state === 'succeeded' && r.nominated){
+          const local = stats.get(r.localCandidateId);
+          const remote = stats.get(r.remoteCandidateId);
+          pairType = `${local?.candidateType || '?'}-${remote?.candidateType || '?'}`;
+        }
+        if(r.type === 'inbound-rtp' && r.kind === 'video') video = r;
+        if(r.type === 'inbound-rtp' && r.kind === 'audio') audio = r;
+      });
+      console.log(
+        `[Call][stats] candidate-pair: ${pairType} | video bytes: ${video?.bytesReceived ?? '—'} frames: ${video?.framesDecoded ?? '—'} | audio bytes: ${audio?.bytesReceived ?? '—'}`
+      );
+    }, 3000);
+  }
+
   function addVideo(stream, cls){
     const v = document.createElement('video');
     v.autoplay = true;
@@ -277,6 +304,7 @@ export function initCall(){
           setStatus('Медиа-канал разорван');
         }
       };
+      startStatsLoop(pc);
     }
     
     let remoteVideoAdded = false;
@@ -411,6 +439,7 @@ export function initCall(){
   function endCall(){
     closing = true;
     clearReconnect();
+    stopStatsLoop();
     if(activeCall){ activeCall.close(); activeCall = null; }
     if(peer){ peer.destroy(); peer = null; }
     if(localStream){ localStream.getTracks().forEach(t => t.stop()); localStream = null; }
