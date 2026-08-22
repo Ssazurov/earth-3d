@@ -206,6 +206,10 @@ export function initCall(){
   }
   function startStatsLoop(pc){
     stopStatsLoop();
+    let candidatesGathered = 0;
+    pc.addEventListener('icecandidate', e => {
+      if(e.candidate) candidatesGathered++;
+    });
     statsTimer = setInterval(async () => {
       if(pc.connectionState === 'closed') { stopStatsLoop(); return; }
       const stats = await pc.getStats().catch(() => null);
@@ -222,7 +226,7 @@ export function initCall(){
         if(r.type === 'inbound-rtp' && r.kind === 'audio') audio = r;
       });
       console.log(
-        `[Call][stats] ICE: ${pc.iceConnectionState} | pair: ${pairType} | video bytes: ${video?.bytesReceived ?? '—'} frames: ${video?.framesDecoded ?? '—'} | audio bytes: ${audio?.bytesReceived ?? '—'}`
+        `[Call][stats] ICE:${pc.iceConnectionState} conn:${pc.connectionState} gather:${pc.iceGatheringState} candidates:${candidatesGathered} | pair: ${pairType} | video bytes: ${video?.bytesReceived ?? '—'} frames: ${video?.framesDecoded ?? '—'} | audio bytes: ${audio?.bytesReceived ?? '—'}`
       );
     }, 3000);
   }
