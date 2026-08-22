@@ -222,7 +222,7 @@ export function initCall(){
         if(r.type === 'inbound-rtp' && r.kind === 'audio') audio = r;
       });
       console.log(
-        `[Call][stats] candidate-pair: ${pairType} | video bytes: ${video?.bytesReceived ?? '—'} frames: ${video?.framesDecoded ?? '—'} | audio bytes: ${audio?.bytesReceived ?? '—'}`
+        `[Call][stats] ICE: ${pc.iceConnectionState} | pair: ${pairType} | video bytes: ${video?.bytesReceived ?? '—'} frames: ${video?.framesDecoded ?? '—'} | audio bytes: ${audio?.bytesReceived ?? '—'}`
       );
     }, 3000);
   }
